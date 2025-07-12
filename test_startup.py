@@ -27,12 +27,13 @@ def test_script_startup():
         print(f"ERROR: {e}")
         return False
     
-    MAIN_SCRIPT = PROJECT_ROOT / "main.py"
+    MAIN_SCRIPT = PROJECT_ROOT / "src" / "ink2tex" / "main.py"
     if not MAIN_SCRIPT.exists():
         print(f"ERROR: Main script not found: {MAIN_SCRIPT}")
         return False
     
     print(f"Testing script startup: {MAIN_SCRIPT}")
+    print("Note: This is a GUI application, so it will run until terminated")
     
     try:
         # Start the process
@@ -44,8 +45,9 @@ def test_script_startup():
             text=True
         )
         
-        # Wait a bit for startup
-        time.sleep(3)
+        # Wait a bit for startup (GUI apps take time to initialize)
+        print("Waiting for GUI initialization...")
+        time.sleep(1)
         
         # Check if process is still running
         poll_result = process.poll()
@@ -53,10 +55,12 @@ def test_script_startup():
         if poll_result is None:
             print("✓ Application started successfully (process is running)")
             
+            # For GUI applications, we expect them to keep running
             # Terminate the process gracefully
+            print("Terminating GUI application...")
             try:
                 process.terminate()
-                process.wait(timeout=5)
+                process.wait(timeout=3)
                 print("✓ Application terminated gracefully")
                 return True
             except subprocess.TimeoutExpired:
@@ -103,8 +107,8 @@ def test_executable_startup():
             text=True
         )
         
-        # Wait a bit for startup
-        time.sleep(3)
+        # Wait a bit for startup (reduced time for GUI apps)
+        time.sleep(2)
         
         # Check if process is still running
         poll_result = process.poll()
@@ -112,10 +116,11 @@ def test_executable_startup():
         if poll_result is None:
             print("✓ Executable started successfully (process is running)")
             
+            # For GUI applications, we expect them to keep running
             # Terminate the process gracefully
             try:
                 process.terminate()
-                process.wait(timeout=5)
+                process.wait(timeout=3)
                 print("✓ Executable terminated gracefully")
                 return True
             except subprocess.TimeoutExpired:

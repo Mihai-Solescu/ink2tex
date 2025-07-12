@@ -121,7 +121,49 @@ def build_executable(PROJECT_ROOT, python_exe):
         return False
     
     print("✓ PyInstaller build completed")
+    
+    # Move executable to the correct location
+    move_executable_to_standalone(PROJECT_ROOT)
+    
     return True
+
+def move_executable_to_standalone(PROJECT_ROOT):
+    """Move the built executable from installer/dist to PROJECT_ROOT/dist/standalone"""
+    print()
+    print("[4.5/6] Moving executable to standalone directory...")
+    
+    # PyInstaller creates the executable in installer/dist/
+    INSTALLER_DIST = PROJECT_ROOT / "installer" / "dist"
+    EXE_SOURCE = INSTALLER_DIST / "Ink2TeX.exe"
+    
+    # We want it in PROJECT_ROOT/dist/standalone/
+    STANDALONE_DIR = PROJECT_ROOT / "dist" / "standalone"
+    STANDALONE_DIR.mkdir(parents=True, exist_ok=True)
+    EXE_TARGET = STANDALONE_DIR / "Ink2TeX.exe"
+    
+    if EXE_SOURCE.exists():
+        # Remove existing target if it exists
+        if EXE_TARGET.exists():
+            EXE_TARGET.unlink()
+        
+        # Move the executable
+        shutil.move(str(EXE_SOURCE), str(EXE_TARGET))
+        print(f"✓ Moved executable from {EXE_SOURCE} to {EXE_TARGET}")
+        
+        # Clean up the installer/dist directory
+        if INSTALLER_DIST.exists():
+            shutil.rmtree(INSTALLER_DIST)
+            print("✓ Cleaned up temporary build directory")
+    else:
+        print(f"WARNING: Executable not found at expected location: {EXE_SOURCE}")
+        
+        # List what was actually created
+        if INSTALLER_DIST.exists():
+            print(f"Contents of {INSTALLER_DIST}:")
+            for item in INSTALLER_DIST.rglob("*"):
+                print(f"  {item}")
+        else:
+            print(f"ERROR: {INSTALLER_DIST} does not exist")
 
 def verify_build(PROJECT_ROOT):
     """Verify that the build was successful"""

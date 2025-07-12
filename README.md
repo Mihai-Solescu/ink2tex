@@ -1,17 +1,18 @@
 # Ink2TeX - Handwritten Math to LaTeX Converter
 
-A modular PyQt6 system tray application that converts handwritten mathematical equations to LaTeX format using Google's Gemini AI. The application features a clean architecture with separated concerns for maintainability and reliable PyInstaller packaging.
+A modern PyQt6 system tray application that converts handwritten mathematical equations to LaTeX format using Google's Gemini AI. Features a modular architecture with Python-based build system for cross-platform development and reliable packaging.
 
 ## 🏗️ **Architecture Overview**
 
-Ink2TeX has been refactored into a modular architecture:
+Ink2TeX uses a modern modular architecture with Python-based build automation:
 
 ```
 ink2tex/
 ├── .api                    # Google Gemini API key configuration
 ├── .config                 # Application settings and configuration
 ├── .gitignore             # Git ignore rules
-├── build_wrapper.bat      # Interactive build wrapper script
+├── build_wrapper.py       # Python build system (replaces batch files)
+├── test_startup.py        # Application startup testing
 ├── prompt.txt             # AI prompt template for handwriting conversion
 ├── pyproject.toml         # Modern Python project configuration
 ├── README.md              # This documentation file
@@ -20,8 +21,7 @@ ink2tex/
 ├── docs/                  # Documentation files
 │   ├── AUTO_STARTUP_FEATURES.md
 │   ├── DEPLOYMENT.md
-│   ├── DISTRIBUTION.md
-│   └── INSTALLER.md
+│   └── DISTRIBUTION.md
 ├── installer/             # PyInstaller and installer configuration
 │   ├── ink2tex.spec       # PyInstaller build specification
 │   ├── installer.iss      # Inno Setup installer script
@@ -29,11 +29,13 @@ ink2tex/
 │   ├── version_info.txt   # Windows executable version information
 │   └── hooks/             # PyInstaller custom hooks
 │       └── runtime_hook_numpy.py
-├── scripts/               # Build automation scripts
-│   ├── build.bat          # Complete build (executable + installer)
-│   ├── build_exe.bat      # Executable-only build
-│   ├── build_installer.bat # Installer-only build
-│   └── test_deployment.bat # Deployment testing script
+├── scripts/               # Python build automation scripts
+│   ├── build.py           # Complete build orchestration
+│   ├── build_exe.py       # Executable-only build
+│   ├── build_installer.py # Installer-only build
+│   ├── test_deployment.py # Deployment testing script
+│   ├── init_venv.py       # Virtual environment setup
+│   └── clean.py           # Build artifact cleanup
 ├── src/                   # Source code directory
 │   └── ink2tex/           # Main Python package
 │       ├── __init__.py    # Package initialization
@@ -61,11 +63,13 @@ ink2tex/
 
 ### **Key Architectural Features:**
 
-- **Separation of Concerns**: Core logic, UI components, and utilities are separated
-- **PyInstaller Compatible**: Prevents "CPU dispatcher tracer" and import-order errors
-- **Lazy Loading**: Heavy dependencies (PyQt6, matplotlib, numpy) are imported only when needed
+- **Python Build System**: Cross-platform build automation with robust path handling using `pathlib`
+- **Separation of Concerns**: Core logic, UI components, and utilities are clearly separated
+- **PyInstaller Compatible**: Prevents import-order errors and packaging issues
+- **Lazy Loading**: Heavy dependencies (PyQt6, matplotlib, numpy) imported only when needed
 - **Single Entry Point**: Only `main.py` contains the `if __name__ == "__main__"` block
 - **Modern Python**: Uses `pyproject.toml` configuration and modular package structure
+- **Professional CLI**: Build system uses `--` argument conventions with comprehensive help
 
 ## 📦 **Quick Start for Users**
 
@@ -90,10 +94,14 @@ ink2tex/
 ### **Option 3: Run from Source (Developers)**
 
 1. Clone the repository
-2. Set up virtual environment: `python -m venv .venv`
-3. Activate: `.venv\Scripts\activate` (Windows)
-4. Install dependencies: `pip install -e .`
-5. Run: `python -m src.ink2tex.main`
+2. Set up virtual environment: 
+   ```bash
+   python build_wrapper.py --init
+   ```
+3. Run the application:
+   ```bash
+   python src/ink2tex/main.py
+   ```
 
 ## 🎯 **How to Use Ink2TeX**
 
@@ -235,55 +243,75 @@ build_wrapper.bat init        # Initialize virtual environment (.venv)
 build_wrapper.bat help        # Show help and usage
 ```
 
-**Virtual Environment Setup:**
+## 🚀 **Build System**
 
-```batch
-# Initialize .venv with all build dependencies (done automatically during builds):
-build_wrapper.bat init
-# Or directly:
-scripts\init_venv.bat
+Ink2TeX uses a modern Python-based build system with robust path handling and cross-platform compatibility.
+
+### **Quick Build Commands**
+
+```bash
+# Default full build (3-second countdown for cancellation)
+python build_wrapper.py
+
+# Specific build commands
+python build_wrapper.py --full       # Full build (executable + installer)
+python build_wrapper.py --exe        # Executable only (faster)
+python build_wrapper.py --installer  # Installer only
+python build_wrapper.py --test       # Test deployment readiness
+python build_wrapper.py --init       # Initialize virtual environment
+python build_wrapper.py --startup    # Test application startup
+python build_wrapper.py --clean      # Clean build artifacts
+python build_wrapper.py --help       # Show all available options
 ```
 
-**Direct Script Execution:**
+### **Build System Features**
 
-```batch
-# Full build (executable + installer):
-scripts\build.bat
+- ✅ **Cross-platform Python scripts** (no more batch file dependencies)
+- ✅ **Robust path handling** using `pathlib` and `PROJECT_ROOT` discovery
+- ✅ **Automatic virtual environment management** (`.venv` creation and setup)
+- ✅ **Professional CLI** with `--` argument conventions
+- ✅ **Non-blocking execution** (no hanging on input prompts)
+- ✅ **Comprehensive testing** (deployment readiness, startup validation)
 
-# Executable only (faster for testing):
-scripts\build_exe.bat
+### **Build Requirements**
 
-# Installer only:
-scripts\build_installer.bat
-```
-
-**Build Outputs:**
-
-- **Standalone executable**: `dist\standalone\Ink2TeX.exe` (~100MB)
-- **Windows installer**: `dist\installer\Ink2TeX_Setup_v1.0.0.exe` (~101MB)
-
-**Alternative approaches:**
-
-```batch
-# Manual steps (advanced users):
-pip install -r installer\requirements-build.txt
-cd installer
-pyinstaller ink2tex.spec --noconfirm
-cd ..
-iscc installer\installer.iss
-
-# Test deployment readiness:
-test_deployment.bat
-```
-
-**Build Requirements:**
-
-- Python 3.8+
+- Python 3.8+ with pip
 - Inno Setup 6 (for Windows installer)
 - Virtual environment automatically managed (`.venv`)
-- All dependencies automatically installed from `installer\requirements-build.txt`
+- All dependencies automatically installed
 
-**Note:** The build system automatically:
+**The build system automatically:**
+
+- Creates and configures `.venv` virtual environment if needed
+- Installs all build dependencies from `installer/requirements-build.txt`
+- Handles PyInstaller configuration with modular architecture support
+- Manages build artifacts and cleanup
+- Tests deployment readiness and application startup
+
+### **Build Outputs**
+
+- **Standalone executable**: `dist/standalone/Ink2TeX.exe` (~100MB)
+- **Windows installer**: `dist/installer/Ink2TeX_Setup_v1.0.0.exe` (~101MB)
+
+### **Advanced Usage**
+
+```bash
+# Initialize environment only
+python build_wrapper.py --init
+
+# Test without building
+python build_wrapper.py --test
+python build_wrapper.py --startup
+
+# Clean before fresh build
+python build_wrapper.py --clean
+python build_wrapper.py --full
+
+# Manual steps (advanced users):
+python scripts/init_venv.py
+python scripts/build_exe.py
+python scripts/build_installer.py
+```
 - Creates and configures `.venv` virtual environment if needed
 - Installs all build dependencies
 - Handles PyInstaller configuration
@@ -615,6 +643,40 @@ ink2tex/
 3. **Configuration**: Use `ConfigReader` class methods
 4. **API integration**: Extend `GeminiAPIManager` class
 5. **Build system**: Update `installer/requirements-build.txt` if new dependencies added
+
+## 🎉 **Recent Modernization**
+
+Ink2TeX has been completely modernized with:
+
+### **✅ Python Build System**
+- **Eliminated batch file dependencies** for cross-platform compatibility
+- **Robust path handling** using `pathlib` and `PROJECT_ROOT` discovery
+- **Professional CLI** with `--` argument conventions and comprehensive help
+- **Non-blocking execution** (no hanging on user input)
+
+### **✅ Enhanced Development Experience**
+- **Automatic virtual environment management** (`.venv` setup and configuration)
+- **Comprehensive testing** (deployment readiness, application startup validation)
+- **Modern project structure** with `pyproject.toml` configuration
+- **Clear separation of concerns** in modular architecture
+
+### **✅ Build Commands**
+```bash
+python build_wrapper.py          # Default full build with countdown
+python build_wrapper.py --exe    # Fast executable-only build
+python build_wrapper.py --test   # Comprehensive deployment testing
+python build_wrapper.py --startup # GUI application startup validation
+python build_wrapper.py --clean  # Intelligent build artifact cleanup
+python build_wrapper.py --help   # Complete usage documentation
+```
+
+### **✅ Improved Reliability**
+- **PyInstaller compatibility** with modular architecture
+- **Lazy loading** for faster startup and reduced memory usage
+- **Error handling** with descriptive messages and recovery suggestions
+- **Path independence** - works from any directory location
+
+This modernization maintains full backward compatibility while providing a significantly improved development and deployment experience!
 
 ## License
 

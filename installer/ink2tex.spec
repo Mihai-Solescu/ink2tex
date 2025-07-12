@@ -104,27 +104,4 @@ exe = EXE(
     version='version_info.txt' if Path('version_info.txt').exists() else None,
 )
 
-# Custom distribution directory
-import shutil
-import os
-
-def move_to_standalone():
-    """Move the built executable to dist/standalone directory"""
-    source_dir = '../dist'  # PyInstaller creates dist in base directory
-    target_dir = '../dist/standalone'
-    
-    # Create standalone directory
-    if not os.path.exists(target_dir):
-        os.makedirs(target_dir)
-    
-    # Move executable
-    exe_name = f'{app_name}.exe'
-    if os.path.exists(os.path.join(source_dir, exe_name)):
-        # Remove existing file if it exists
-        target_file = os.path.join(target_dir, exe_name)
-        if os.path.exists(target_file):
-            os.remove(target_file)
-        shutil.move(os.path.join(source_dir, exe_name), target_file)
-
-# Execute the move after build
-move_to_standalone()
+# Note: The executable will be created in installer/dist/ and then moved by the build script
