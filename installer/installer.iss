@@ -4,13 +4,13 @@
 #define MyAppName "Ink2TeX"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Ink2TeX Project"
-#define MyAppURL "https://github.com/ink2tex/ink2tex"
+#define MyAppURL "https://github.com/Mihai-Solescu/ink2tex"
 #define MyAppExeName "Ink2TeX.exe"
 #define MyAppDescription "Handwritten Math to LaTeX Converter"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
-AppId={B8F8F8F8-1234-5678-9ABC-123456789ABC}
+AppId={{B8F8F8F8-1234-5678-9ABC-123456789ABC}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -20,11 +20,8 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-LicenseFile=LICENSE.txt
-InfoBeforeFile=INSTALL_NOTES.txt
-OutputDir=installer
+OutputDir=..\dist\installer
 OutputBaseFilename=Ink2TeX_Setup_v{#MyAppVersion}
-SetupIconFile=assets\icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -41,13 +38,11 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 Name: "autostart"; Description: "Start {#MyAppName} automatically when Windows starts"; GroupDescription: "Startup Options"; Flags: unchecked
 
 [Files]
-Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\.api"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\.config"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: UpdateConfigFile  
-Source: "dist\prompt.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\README.md"; DestDir: "{app}"; Flags: ignoreversion
-Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: CreateLicenseFile
-Source: "INSTALL_NOTES.txt"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: CreateInstallNotes
+Source: "..\dist\standalone\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\.api"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\.config"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: UpdateConfigFile  
+Source: "..\prompt.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

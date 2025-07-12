@@ -17,7 +17,7 @@ if errorlevel 1 (
 )
 
 echo [1/5] Installing build dependencies...
-pip install -r requirements-build.txt
+pip install -r installer\requirements-build.txt
 if errorlevel 1 (
     echo ERROR: Failed to install dependencies
     pause
@@ -37,7 +37,7 @@ echo Creating default icon placeholder...
 
 echo.
 echo [4/5] Building executable with PyInstaller...
-pyinstaller ink2tex.spec --clean --noconfirm
+pyinstaller installer\ink2tex.spec --clean --noconfirm
 if errorlevel 1 (
     echo ERROR: PyInstaller build failed
     pause
@@ -46,14 +46,14 @@ if errorlevel 1 (
 
 echo.
 echo [5/5] Verifying build...
-if exist "dist\Ink2TeX.exe" (
+if exist "dist\standalone\Ink2TeX.exe" (
     echo ✓ Build successful!
-    echo ✓ Executable created: dist\Ink2TeX.exe
+    echo ✓ Executable created: dist\standalone\Ink2TeX.exe
     echo.
     echo File size:
-    for %%I in ("dist\Ink2TeX.exe") do echo   %%~zI bytes
+    for %%I in ("dist\standalone\Ink2TeX.exe") do echo   %%~zI bytes
     echo.
-    echo You can now run: dist\Ink2TeX.exe
+    echo You can now run: dist\standalone\Ink2TeX.exe
     echo Or create an installer using: build_installer.bat
 ) else (
     echo ERROR: Build failed - executable not found

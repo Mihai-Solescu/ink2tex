@@ -2,8 +2,12 @@
 # Do not share these files publicly
 .api
 
-# Temporary drawings
+# Temporary files
+temp/
 temp_overlay_drawing.png
+
+# Build outputs
+installer_output/
 
 # Environment variables
 .env

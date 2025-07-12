@@ -8,7 +8,7 @@ echo ===================================================
 echo.
 
 REM Check if the executable exists
-if not exist "dist\Ink2TeX.exe" (
+if not exist "dist\standalone\Ink2TeX.exe" (
     echo ERROR: Executable not found!
     echo Please run build_exe.bat first to create the executable
     pause
@@ -33,12 +33,12 @@ if "%INNO_PATH%"=="" (
 echo ✓ Found Inno Setup at: %INNO_PATH%
 
 echo.
-echo [2/3] Creating installer directory...
-if not exist "installer" mkdir "installer"
+echo [2/3] Creating installer output directory...
+if not exist "dist\installer" mkdir "dist\installer"
 
 echo.
 echo [3/3] Building installer...
-"%INNO_PATH%" "installer.iss"
+"%INNO_PATH%" "installer\installer.iss"
 if errorlevel 1 (
     echo ERROR: Installer build failed
     pause
@@ -49,11 +49,11 @@ echo.
 echo ===================================================
 echo ✓ Installer build successful!
 echo.
-if exist "installer\Ink2TeX_Setup_v1.0.0.exe" (
-    echo 📦 Installer created: installer\Ink2TeX_Setup_v1.0.0.exe
+if exist "dist\installer\Ink2TeX_Setup_v1.0.0.exe" (
+    echo 📦 Installer created: dist\installer\Ink2TeX_Setup_v1.0.0.exe
     echo.
     echo File size:
-    for %%I in ("installer\Ink2TeX_Setup_v1.0.0.exe") do echo   %%~zI bytes
+    for %%I in ("dist\installer\Ink2TeX_Setup_v1.0.0.exe") do echo   %%~zI bytes
     echo.
     echo The installer includes:
     echo   • Ink2TeX.exe - Main application
