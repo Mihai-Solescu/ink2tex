@@ -10,7 +10,7 @@
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
-AppId={{B8F8F8F8-1234-5678-9ABC-123456789ABC}
+AppId={B8F8F8F8-1234-5678-9ABC-123456789ABC}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -43,7 +43,7 @@ Name: "autostart"; Description: "Start {#MyAppName} automatically when Windows s
 [Files]
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\.api"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\.config"; DestDir: "{app}"; Flags: ignoreversion  
+Source: "dist\.config"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: UpdateConfigFile  
 Source: "dist\prompt.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: CreateLicenseFile
@@ -122,4 +122,49 @@ begin
     'For support, visit: https://github.com/ink2tex/ink2tex';
     
   SaveStringToFile(ExpandConstant('{app}\INSTALL_NOTES.txt'), NotesContent, False);
+end;
+
+procedure UpdateConfigFile;
+var
+  ConfigPath: string;
+  ConfigLines: TArrayOfString;
+  ConfigContent: string;
+  I: Integer;
+  Updated: Boolean;
+  AutoStartValue: string;
+begin
+  ConfigPath := ExpandConstant('{app}\.config');
+  
+  // Determine auto-start value based on task selection
+  if IsTaskSelected('autostart') then
+    AutoStartValue := 'true'
+  else
+    AutoStartValue := 'false';
+  
+  // Load existing config file
+  if LoadStringsFromFile(ConfigPath, ConfigLines) then
+  begin
+    Updated := False;
+    
+    // Update existing AUTO_START_WITH_WINDOWS line
+    for I := 0 to GetArrayLength(ConfigLines) - 1 do
+    begin
+      if Pos('AUTO_START_WITH_WINDOWS=', Uppercase(ConfigLines[I])) = 1 then
+      begin
+        ConfigLines[I] := 'AUTO_START_WITH_WINDOWS=' + AutoStartValue;
+        Updated := True;
+        Break;
+      end;
+    end;
+    
+    // Add line if not found
+    if not Updated then
+    begin
+      SetArrayLength(ConfigLines, GetArrayLength(ConfigLines) + 1);
+      ConfigLines[GetArrayLength(ConfigLines) - 1] := 'AUTO_START_WITH_WINDOWS=' + AutoStartValue;
+    end;
+    
+    // Save back to file
+    SaveStringsToFile(ConfigPath, ConfigLines, False);
+  end;
 end;

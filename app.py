@@ -50,6 +50,20 @@ except ImportError:
     SCREENSHOT_AVAILABLE = False
     print("Warning: pyautogui not available - screenshot functionality disabled")
 
+try:
+    import winreg
+    REGISTRY_AVAILABLE = True
+except ImportError:
+    REGISTRY_AVAILABLE = False
+    print("Warning: winreg not available - auto-startup functionality disabled")
+
+try:
+    import pynput.keyboard as keyboard
+    PYNPUT_AVAILABLE = True
+except ImportError:
+    PYNPUT_AVAILABLE = False
+    print("Warning: pynput not available - global hotkeys disabled")
+
 
 class ConfigReader:
     """Utility class to read configuration from .api and .config files"""
@@ -112,6 +126,279 @@ class ConfigReader:
         
         with open(prompt_file, 'r', encoding='utf-8') as f:
             return f.read().strip()
+
+
+class WindowsStartupManager:
+    """Manages Windows startup registry entries for auto-start functionality"""
+    
+    APP_NAME = "Ink2TeX"
+    REGISTRY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    
+    @staticmethod
+    def is_startup_enabled():
+        """Check if auto-startup is enabled in Windows registry"""
+        if not REGISTRY_AVAILABLE:
+            return False
+            
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, WindowsStartupManager.REGISTRY_KEY, 0, winreg.KEY_READ) as key:
+                value, _ = winreg.QueryValueEx(key, WindowsStartupManager.APP_NAME)
+                return bool(value)
+        except (FileNotFoundError, OSError):
+            return False
+    
+    @staticmethod
+    def enable_startup():
+        """Enable auto-startup by adding registry entry"""
+        if not REGISTRY_AVAILABLE:
+            return False
+            
+        try:
+            # Get the path to the current executable
+            import sys
+            if getattr(sys, 'frozen', False):
+                # Running as executable
+                exe_path = sys.executable
+            else:
+                # Running as script
+                exe_path = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
+            
+            # Add to registry
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, WindowsStartupManager.REGISTRY_KEY, 0, 
+                              winreg.KEY_SET_VALUE) as key:
+                winreg.SetValueEx(key, WindowsStartupManager.APP_NAME, 0, winreg.REG_SZ, exe_path)
+            
+            return True
+        except Exception as e:
+            print(f"Failed to enable startup: {e}")
+            return False
+    
+    @staticmethod
+    def disable_startup():
+        """Disable auto-startup by removing registry entry"""
+        if not REGISTRY_AVAILABLE:
+            return False
+            
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, WindowsStartupManager.REGISTRY_KEY, 0, 
+                              winreg.KEY_SET_VALUE) as key:
+                winreg.DeleteValue(key, WindowsStartupManager.APP_NAME)
+            return True
+        except (FileNotFoundError, OSError):
+            return True  # Already disabled
+        except Exception as e:
+            print(f"Failed to disable startup: {e}")
+            return False
+    
+    @staticmethod
+    def toggle_startup():
+        """Toggle auto-startup setting"""
+        if WindowsStartupManager.is_startup_enabled():
+            return WindowsStartupManager.disable_startup()
+        else:
+            return WindowsStartupManager.enable_startup()
+
+
+class SettingsWindow(QWidget):
+    """Settings window for configuring application preferences"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_app = parent
+        self.init_ui()
+        self.load_settings()
+        
+    def init_ui(self):
+        """Initialize the settings UI"""
+        self.setWindowTitle("Ink2TeX Settings")
+        self.setFixedSize(500, 400)
+        self.setWindowIcon(self.parent_app.icon if self.parent_app else QIcon())
+        
+        # Main layout
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        
+        # Title
+        title = QLabel("Ink2TeX Settings")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        
+        # Startup Settings Group
+        startup_group = QGroupBox("Startup Settings")
+        startup_layout = QVBoxLayout(startup_group)
+        
+        self.auto_start_checkbox = QPushButton("Enable Auto-Start with Windows")
+        self.auto_start_checkbox.setCheckable(True)
+        self.auto_start_checkbox.setStyleSheet("""
+            QPushButton {
+                text-align: left;
+                padding: 10px;
+                border: 2px solid #ccc;
+                border-radius: 5px;
+                background-color: #f9f9f9;
+            }
+            QPushButton:checked {
+                background-color: #e7f3ff;
+                border-color: #0066cc;
+                color: #0066cc;
+            }
+        """)
+        self.auto_start_checkbox.clicked.connect(self.toggle_auto_start)
+        
+        startup_info = QLabel("When enabled, Ink2TeX will start automatically when Windows starts.\nThe application will run in the background (system tray).")
+        startup_info.setStyleSheet("color: #666; font-size: 10px;")
+        startup_info.setWordWrap(True)
+        
+        startup_layout.addWidget(self.auto_start_checkbox)
+        startup_layout.addWidget(startup_info)
+        layout.addWidget(startup_group)
+        
+        # Hotkey Settings Group
+        hotkey_group = QGroupBox("Hotkey Settings")
+        hotkey_layout = QVBoxLayout(hotkey_group)
+        
+        hotkey_info = QLabel("Global hotkey to open overlay:")
+        hotkey_value = QLabel("Ctrl + Shift + I")
+        hotkey_value.setFont(QFont("Courier", 12, QFont.Weight.Bold))
+        hotkey_value.setStyleSheet("color: #0066cc; background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        
+        hotkey_note = QLabel("This hotkey works system-wide, even when other applications are focused.")
+        hotkey_note.setStyleSheet("color: #666; font-size: 10px;")
+        hotkey_note.setWordWrap(True)
+        
+        hotkey_layout.addWidget(hotkey_info)
+        hotkey_layout.addWidget(hotkey_value)
+        hotkey_layout.addWidget(hotkey_note)
+        layout.addWidget(hotkey_group)
+        
+        # API Settings Group
+        api_group = QGroupBox("API Settings")
+        api_layout = QVBoxLayout(api_group)
+        
+        api_status = QLabel("Google Gemini API: ✓ Configured" if hasattr(self.parent_app, 'model') else "Google Gemini API: ❌ Not Configured")
+        api_status.setStyleSheet("font-weight: bold; color: green;" if hasattr(self.parent_app, 'model') else "font-weight: bold; color: red;")
+        
+        api_info = QLabel("To configure the API key, edit the .api file in the application folder.")
+        api_info.setStyleSheet("color: #666; font-size: 10px;")
+        api_info.setWordWrap(True)
+        
+        api_layout.addWidget(api_status)
+        api_layout.addWidget(api_info)
+        layout.addWidget(api_group)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        self.save_btn = QPushButton("Save Settings")
+        self.save_btn.setStyleSheet("background-color: #4CAF50; color: white; padding: 10px; border-radius: 5px; font-weight: bold;")
+        self.save_btn.clicked.connect(self.save_settings)
+        
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setStyleSheet("background-color: #f44336; color: white; padding: 10px; border-radius: 5px; font-weight: bold;")
+        self.cancel_btn.clicked.connect(self.close)
+        
+        button_layout.addStretch()
+        button_layout.addWidget(self.save_btn)
+        button_layout.addWidget(self.cancel_btn)
+        
+        layout.addLayout(button_layout)
+        layout.addStretch()
+    
+    def load_settings(self):
+        """Load current settings and update UI"""
+        try:
+            # Check auto-start status from registry
+            registry_enabled = WindowsStartupManager.is_startup_enabled()
+            
+            # Check config file setting
+            config_enabled = ConfigReader.read_config_value('AUTO_START_WITH_WINDOWS', default='false').lower() == 'true'
+            
+            # Use registry as the authoritative source
+            self.auto_start_checkbox.setChecked(registry_enabled)
+            
+            # Update button text based on state
+            self.update_auto_start_button_text()
+            
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+    
+    def update_auto_start_button_text(self):
+        """Update auto-start button text based on current state"""
+        if self.auto_start_checkbox.isChecked():
+            self.auto_start_checkbox.setText("✓ Auto-Start Enabled - Click to Disable")
+        else:
+            self.auto_start_checkbox.setText("☐ Auto-Start Disabled - Click to Enable")
+    
+    def toggle_auto_start(self):
+        """Toggle auto-start setting"""
+        try:
+            if self.auto_start_checkbox.isChecked():
+                # Enable auto-start
+                success = WindowsStartupManager.enable_startup()
+                if success:
+                    self.update_auto_start_button_text()
+                    self.show_message("Auto-Start Enabled", "Ink2TeX will now start automatically with Windows.")
+                else:
+                    self.auto_start_checkbox.setChecked(False)
+                    self.show_message("Error", "Failed to enable auto-start. Please run as administrator.")
+            else:
+                # Disable auto-start
+                success = WindowsStartupManager.disable_startup()
+                if success:
+                    self.update_auto_start_button_text()
+                    self.show_message("Auto-Start Disabled", "Ink2TeX will no longer start automatically with Windows.")
+                else:
+                    self.auto_start_checkbox.setChecked(True)
+                    self.show_message("Error", "Failed to disable auto-start. Please run as administrator.")
+                    
+        except Exception as e:
+            print(f"Error toggling auto-start: {e}")
+            self.show_message("Error", f"Failed to change auto-start setting: {str(e)}")
+    
+    def save_settings(self):
+        """Save settings to configuration file"""
+        try:
+            # Update config file to match registry setting
+            auto_start_value = 'true' if self.auto_start_checkbox.isChecked() else 'false'
+            
+            # Read current config file
+            config_lines = []
+            config_path = '.config'
+            
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config_lines = f.readlines()
+            
+            # Update or add AUTO_START_WITH_WINDOWS setting
+            updated = False
+            for i, line in enumerate(config_lines):
+                if line.strip().upper().startswith('AUTO_START_WITH_WINDOWS'):
+                    config_lines[i] = f'AUTO_START_WITH_WINDOWS={auto_start_value}\n'
+                    updated = True
+                    break
+            
+            if not updated:
+                config_lines.append(f'AUTO_START_WITH_WINDOWS={auto_start_value}\n')
+            
+            # Write back to file
+            with open(config_path, 'w') as f:
+                f.writelines(config_lines)
+            
+            self.show_message("Settings Saved", "Your settings have been saved successfully.")
+            self.close()
+            
+        except Exception as e:
+            print(f"Error saving settings: {e}")
+            self.show_message("Error", f"Failed to save settings: {str(e)}")
+    
+    def show_message(self, title, message):
+        """Show a message box"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.exec()
 
 
 class ConversionThread(QThread):
@@ -850,6 +1137,10 @@ class GlobalHotkeyManager:
     def start_listening(self):
         """Set up global shortcuts using pynput if available"""
         try:
+            if not PYNPUT_AVAILABLE:
+                print("pynput not available - global hotkeys disabled")
+                return False
+                
             import pynput.keyboard as keyboard
             
             def on_hotkey():
@@ -887,10 +1178,12 @@ class Ink2TeXSystemTrayApp(QWidget):
     def __init__(self):
         super().__init__()
         self.overlay = None
+        self.settings_window = None
         self.init_app()
         self.setup_gemini_api()
         self.setup_system_tray()
         self.setup_global_hotkeys()
+        self.apply_startup_settings()
         
     def init_app(self):
         """Initialize the application without showing a window"""
@@ -986,7 +1279,12 @@ class Ink2TeXSystemTrayApp(QWidget):
         self.tray_menu.addAction(about_action)
         
         # Settings/Status action
-        status_action = QAction("⚙️ Status", self)
+        settings_action = QAction("⚙️ Settings", self)
+        settings_action.triggered.connect(self.show_settings)
+        self.tray_menu.addAction(settings_action)
+        
+        # Status action
+        status_action = QAction("ℹ️ Status", self)
         status_action.triggered.connect(self.show_status)
         self.tray_menu.addAction(status_action)
         
@@ -1009,6 +1307,52 @@ class Ink2TeXSystemTrayApp(QWidget):
             print("✓ Global hotkey (Ctrl+Shift+I) enabled")
         else:
             print("⚠️ Global hotkey setup failed")
+    
+    def apply_startup_settings(self):
+        """Apply startup settings from configuration"""
+        try:
+            # Check if auto-start is enabled in config
+            auto_start_config = ConfigReader.read_config_value('AUTO_START_WITH_WINDOWS', default='false').lower() == 'true'
+            auto_start_registry = WindowsStartupManager.is_startup_enabled()
+            
+            # Sync config with registry (registry is authoritative)
+            if auto_start_config != auto_start_registry:
+                print(f"Syncing startup setting: config={auto_start_config}, registry={auto_start_registry}")
+                if auto_start_registry:
+                    self.update_config_setting('AUTO_START_WITH_WINDOWS', 'true')
+                else:
+                    self.update_config_setting('AUTO_START_WITH_WINDOWS', 'false')
+            
+        except Exception as e:
+            print(f"Error applying startup settings: {e}")
+    
+    def update_config_setting(self, key, value):
+        """Update a single setting in the config file"""
+        try:
+            config_path = '.config'
+            config_lines = []
+            
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config_lines = f.readlines()
+            
+            # Update or add setting
+            updated = False
+            for i, line in enumerate(config_lines):
+                if line.strip().upper().startswith(key.upper()):
+                    config_lines[i] = f'{key}={value}\n'
+                    updated = True
+                    break
+            
+            if not updated:
+                config_lines.append(f'{key}={value}\n')
+            
+            # Write back to file
+            with open(config_path, 'w') as f:
+                f.writelines(config_lines)
+                
+        except Exception as e:
+            print(f"Error updating config setting: {e}")
     
     def on_tray_activated(self, reason):
         """Handle tray icon activation"""
@@ -1095,6 +1439,23 @@ draw your math equation, and press <b>Enter</b> to convert.</p>
         msg.setTextFormat(Qt.TextFormat.RichText)
         msg.setIcon(QMessageBox.Icon.Information)
         msg.exec()
+    
+    def show_settings(self):
+        """Show settings window"""
+        try:
+            # Close existing settings window if open
+            if self.settings_window:
+                self.settings_window.close()
+                self.settings_window = None
+            
+            # Create and show settings window
+            self.settings_window = SettingsWindow(self)
+            self.settings_window.show()
+            
+        except Exception as e:
+            print(f"Error showing settings: {e}")
+            self.show_message("Error", f"Failed to open settings: {str(e)}", 
+                            QSystemTrayIcon.MessageIcon.Critical)
     
     def show_status(self):
         """Show application status"""
