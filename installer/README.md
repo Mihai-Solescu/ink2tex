@@ -7,7 +7,7 @@ This directory contains all files related to building and deploying Ink2TeX. Thi
 **Question**: "Does Inno Setup contain the executable produced by PyInstaller?"
 **Answer**: **YES!** Inno Setup takes the PyInstaller executable and wraps it in a professional installer.
 
-```
+```text
 Python Code → PyInstaller → Standalone EXE → Inno Setup → Professional Installer
     ↓              ↓              ↓              ↓              ↓
   app.py      100MB exe file    Ready to run   Installer EXE   End user runs this
@@ -15,12 +15,14 @@ Python Code → PyInstaller → Standalone EXE → Inno Setup → Professional I
 
 ## 🏗️ **Stage 1: PyInstaller (Python → Standalone Executable)**
 
-### What PyInstaller Does:
+### What PyInstaller Does
+
 1. **Analyzes** your `app.py` and finds ALL dependencies
 2. **Bundles** Python interpreter + your code + ALL libraries into ONE file
 3. **Creates** `dist\Ink2TeX.exe` (~100MB) that runs WITHOUT Python installed
 
-### How It Works:
+### How It Works
+
 ```python
 # ink2tex.spec tells PyInstaller:
 data_files = [
@@ -30,8 +32,9 @@ data_files = [
 ]
 ```
 
-### Result After Stage 1:
-```
+### Result After Stage 1
+
+```text
 dist/
 └── standalone/
     └── Ink2TeX.exe    # 100MB file containing:
@@ -45,13 +48,15 @@ dist/
 
 ## 📦 **Stage 2: Inno Setup (Executable → Professional Installer)**
 
-### What Inno Setup Does:
+### What Inno Setup Does
+
 1. **Takes** the `Ink2TeX.exe` file PyInstaller created
 2. **Adds** additional files (separate config files users can edit)
 3. **Creates** a setup wizard that installs everything properly
 4. **Handles** shortcuts, registry entries, uninstaller, etc.
 
-### How It Works:
+### How Inno Setup Works
+
 ```ini
 ; installer.iss tells Inno Setup:
 [Files]
@@ -61,8 +66,9 @@ Source: "..\.config"            ; Include SEPARATE .config file (user editable)
 Source: "..\prompt.txt"         ; Include SEPARATE prompt.txt (user editable)
 ```
 
-### Result After Stage 2:
-```
+### Result After Stage 2
+
+```text
 dist/
 ├── standalone/
 │   └── Ink2TeX.exe              # The standalone executable
@@ -77,7 +83,7 @@ dist/
 
 ## 🔄 **The Complete Flow**
 
-```
+```text
 1. USER RUNS: installer\scripts\build_exe.bat
    ┌─────────────────────────────────────────────────┐
    │ PyInstaller reads ink2tex.spec                  │
@@ -107,7 +113,8 @@ dist/
 ## 📁 **What Gets Installed Where**
 
 When a user runs your installer, they get:
-```
+
+```text
 C:\Program Files\Ink2TeX\
 ├── Ink2TeX.exe         # The PyInstaller executable (contains embedded defaults)
 ├── .api                # Separate file user can edit (overrides embedded)
@@ -122,17 +129,19 @@ C:\Program Files\Ink2TeX\
 ## 🧠 **The Smart Strategy**
 
 Your app uses a **fallback system**:
+
 1. **First**: Look for config files NEXT TO the executable (user can edit these)
 2. **Fallback**: Use config files EMBEDDED IN the executable (defaults)
 
 This means:
+
 - ✅ App works immediately (embedded defaults)
 - ✅ Users can customize settings (external files take priority)
 - ✅ If user deletes external files, app still works (falls back to embedded)
 
 ## 📋 **Directory Structure**
 
-```
+```text
 installer/
 ├── installer.iss          # Inno Setup script - defines what goes in installer
 ├── ink2tex.spec           # PyInstaller spec - defines what goes in executable
@@ -150,15 +159,18 @@ installer/
 **Important**: All build commands should be executed from the project root directory, not from the installer directory.
 
 ### Option 1: Complete Build (Recommended)
+
 ```batch
 # From project root:
 build.bat
 ```
-- Runs Stage 1 (PyInstaller) 
+
+- Runs Stage 1 (PyInstaller)
 - Then runs Stage 2 (Inno Setup)
 - Creates both executable AND installer
 
 ### Option 2: Individual Stages
+
 ```batch
 # Stage 1 only - Create executable:
 installer\scripts\build_exe.bat
@@ -168,6 +180,7 @@ installer\scripts\build_installer.bat
 ```
 
 ### Option 3: Test First
+
 ```batch
 # Check if everything is ready:
 test_deployment.bat
@@ -180,14 +193,16 @@ test_deployment.bat
 
 ## 💡 **Why This Approach?**
 
-### Without Inno Setup (PyInstaller only):
+### Without Inno Setup (PyInstaller only)
+
 ❌ Users get a raw .exe file  
 ❌ No shortcuts  
 ❌ No uninstaller  
 ❌ No auto-start option  
 ❌ Looks unprofessional  
 
-### With Both Tools:
+### With Both Tools
+
 ✅ Professional installation experience  
 ✅ Start menu shortcuts  
 ✅ Proper uninstaller  
@@ -205,6 +220,7 @@ test_deployment.bat
 ## 🔧 **Configuration**
 
 The installer includes auto-startup functionality that can be configured:
+
 - During installation via checkbox
 - Through the application settings window
 - Automatically syncs with Windows registry

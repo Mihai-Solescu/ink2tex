@@ -37,7 +37,7 @@ echo Creating default icon placeholder...
 
 echo.
 echo [4/5] Building executable with PyInstaller...
-pyinstaller installer\ink2tex.spec --clean --noconfirm
+pyinstaller installer\ink2tex.spec --noconfirm # use --clean packaging debugging
 if errorlevel 1 (
     echo ERROR: PyInstaller build failed
     pause
