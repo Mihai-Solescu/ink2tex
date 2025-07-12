@@ -20,10 +20,10 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QTextEdit, QLabel, 
                              QFileDialog, QMessageBox, QProgressBar, QSplitter, 
-                             QGroupBox)
+                             QGroupBox, QSystemTrayIcon, QMenu)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QPoint, QRect
 from PyQt6.QtGui import (QPixmap, QFont, QKeySequence, QShortcut, QPainter, 
-                         QPen, QBrush, QColor)
+                         QPen, QBrush, QColor, QIcon, QAction)
 import google.generativeai as genai
 from PIL import Image
 import io
@@ -203,11 +203,21 @@ class TransparentOverlay(QWidget):
         self.parent_window = parent
         self.current_image = None
         self.latex_text = ""
+        
+        # Initialize these first to avoid threading issues
+        self.drawing = False
+        self.brush_size = 3
+        self.brush_color = QColor(0, 0, 255)  # Blue ink
+        self.last_point = QPoint()
+        self.drawn_paths = []
+        
+        # Setup overlay properties immediately
         self.setup_overlay()
-        self.setup_ui()
-        self.setup_drawing()
-        # Resize canvas after UI is set up
-        self.resize_canvas_for_screen()
+        
+        # Defer heavy operations using QTimer to avoid blocking
+        QTimer.singleShot(0, self.setup_ui)
+        QTimer.singleShot(50, self.setup_drawing)
+        QTimer.singleShot(100, self.resize_canvas_for_screen)
         
     def setup_overlay(self):
         """Setup the transparent full-screen overlay"""
@@ -267,10 +277,14 @@ class TransparentOverlay(QWidget):
         preview_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         preview_layout.addWidget(preview_label)
         
-        # Create matplotlib canvas for LaTeX preview
-        self.preview_figure = Figure(figsize=(4, 2), facecolor='white', dpi=80)
+        # Create matplotlib canvas for LaTeX preview (lightweight)
+        self.preview_figure = Figure(figsize=(4, 2), facecolor='white', dpi=60)  # Lower DPI for faster rendering
         self.preview_canvas = FigureCanvas(self.preview_figure)
+        self.preview_canvas.setMinimumSize(280, 150)  # Smaller for faster rendering
         preview_layout.addWidget(self.preview_canvas)
+        
+        # Initialize with simple placeholder to avoid initial rendering delay
+        QTimer.singleShot(200, self._init_preview_placeholder)
         
         # Edit window
         edit_panel = QWidget()
@@ -304,7 +318,8 @@ class TransparentOverlay(QWidget):
         
         # Right side - Drawing canvas with dashed border (covers rest of screen)
         self.canvas_widget = QWidget()
-        self.canvas_widget.setStyleSheet("background-color: rgba(255, 255, 255, 50);")
+        self.canvas_widget.setStyleSheet("background-color: rgba(255, 255, 255, 30);")  # More transparent for better performance
+        self.canvas_widget.setCursor(Qt.CursorShape.CrossCursor)  # Set drawing cursor
         
         # Add to main layout
         self.layout().addWidget(left_panel)
@@ -312,6 +327,31 @@ class TransparentOverlay(QWidget):
         
         # Canvas will cover the entire right side - calculate dynamically
         self.update_canvas_dimensions()
+        
+        # Set normal cursor to avoid busy cursor
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        
+        # Set up canvas cursor after everything is created
+        QTimer.singleShot(150, self._setup_canvas_cursor)
+    
+    def _setup_canvas_cursor(self):
+        """Set up the canvas cursor after UI is fully initialized"""
+        if hasattr(self, 'canvas_widget') and self.canvas_widget:
+            self.canvas_widget.setCursor(Qt.CursorShape.CrossCursor)
+    
+    def _init_preview_placeholder(self):
+        """Initialize preview with placeholder (deferred to avoid blocking)"""
+        try:
+            ax = self.preview_figure.add_subplot(111)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis('off')
+            ax.text(0.1, 0.5, "LaTeX preview will appear here", 
+                   transform=ax.transAxes, fontsize=9, color='gray',
+                   ha='left', va='center')
+            self.preview_canvas.draw()
+        except Exception as e:
+            print(f"Preview init warning: {e}")
         
     def update_canvas_dimensions(self):
         """Update canvas dimensions to cover the entire right side"""
@@ -327,21 +367,20 @@ class TransparentOverlay(QWidget):
         self.canvas_rect = QRect(canvas_start_x, canvas_start_y, canvas_width, canvas_height)
         
     def setup_drawing(self):
-        """Initialize drawing variables"""
-        self.drawing = False
-        self.brush_size = 3
-        self.brush_color = QColor(0, 0, 255)  # Blue ink
-        self.last_point = QPoint()
-        
-        # Canvas for drawing - will be resized when overlay shows
-        self.canvas_pixmap = QPixmap(1000, 1000)  # Large default size
+        """Initialize drawing variables (optimized for fast startup)"""
+        # Canvas for drawing - start with smaller size for faster init
+        self.canvas_pixmap = QPixmap(800, 600)  # Smaller initial size
         self.canvas_pixmap.fill(Qt.GlobalColor.transparent)
         
-        # Store drawn paths for undo functionality and bounding box calculation
-        self.drawn_paths = []
+        # Set cursor to normal to avoid busy cursor
+        self.setCursor(Qt.CursorShape.ArrowCursor)
         
     def resize_canvas_for_screen(self):
         """Resize canvas pixmap to match actual screen dimensions"""
+        # Skip if not ready
+        if not hasattr(self, 'canvas_rect'):
+            return
+            
         self.update_canvas_dimensions()
         
         # Create new pixmap with correct size
@@ -349,7 +388,7 @@ class TransparentOverlay(QWidget):
         new_pixmap.fill(Qt.GlobalColor.transparent)
         
         # Copy existing content if any
-        if not self.canvas_pixmap.isNull():
+        if hasattr(self, 'canvas_pixmap') and not self.canvas_pixmap.isNull():
             painter = QPainter(new_pixmap)
             painter.drawPixmap(0, 0, self.canvas_pixmap)
             painter.end()
@@ -459,6 +498,10 @@ class TransparentOverlay(QWidget):
     
     def mousePressEvent(self, event):
         """Handle mouse press events"""
+        # Skip if UI not initialized
+        if not hasattr(self, 'canvas_widget') or not hasattr(self, 'canvas_rect'):
+            return
+            
         if event.button() == Qt.MouseButton.LeftButton:
             # Get the actual canvas position on screen (dynamic size)
             canvas_global_rect = QRect(
@@ -480,6 +523,10 @@ class TransparentOverlay(QWidget):
                 
     def mouseMoveEvent(self, event):
         """Handle mouse move events for drawing"""
+        # Skip if UI not initialized  
+        if not hasattr(self, 'canvas_widget') or not hasattr(self, 'canvas_rect'):
+            return
+            
         if (event.buttons() & Qt.MouseButton.LeftButton) and self.drawing:
             canvas_global_rect = QRect(
                 self.canvas_widget.x() + self.canvas_rect.x(),
@@ -495,20 +542,22 @@ class TransparentOverlay(QWidget):
                     event.position().toPoint().y() - canvas_global_rect.y()
                 )
                 
-                # Draw line on canvas
-                painter = QPainter(self.canvas_pixmap)
-                painter.setPen(QPen(self.brush_color, self.brush_size, 
-                                  Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, 
-                                  Qt.PenJoinStyle.RoundJoin))
-                painter.drawLine(self.last_point, canvas_point)
-                painter.end()
+                # Draw line on canvas (check if canvas_pixmap exists)
+                if hasattr(self, 'canvas_pixmap') and not self.canvas_pixmap.isNull():
+                    painter = QPainter(self.canvas_pixmap)
+                    painter.setPen(QPen(self.brush_color, self.brush_size, 
+                                      Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, 
+                                      Qt.PenJoinStyle.RoundJoin))
+                    painter.drawLine(self.last_point, canvas_point)
+                    painter.end()
                 
-                # Add to current path
-                self.current_path.append(canvas_point)
-                self.last_point = canvas_point
-                
-                # Update display
-                self.update()
+                    # Add to current path
+                    if hasattr(self, 'current_path'):
+                        self.current_path.append(canvas_point)
+                    self.last_point = canvas_point
+                    
+                    # Update display
+                    self.update()
                 
     def mouseReleaseEvent(self, event):
         """Handle mouse release events"""
@@ -518,8 +567,29 @@ class TransparentOverlay(QWidget):
             if hasattr(self, 'current_path') and len(self.current_path) > 1:
                 self.drawn_paths.append(self.current_path.copy())
                 
+    def showEvent(self, event):
+        """Handle show event to ensure proper cursor and focus"""
+        super().showEvent(event)
+        
+        # Ensure normal cursor (not busy)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        
+        # Set drawing cursor for canvas widget if it exists
+        if hasattr(self, 'canvas_widget') and self.canvas_widget:
+            self.canvas_widget.setCursor(Qt.CursorShape.CrossCursor)
+        
+        # Set focus to enable keyboard events
+        self.setFocus()
+        
+        # Force update
+        self.update()
+    
     def paintEvent(self, event):
         """Paint the overlay"""
+        # Skip painting if UI not yet initialized
+        if not hasattr(self, 'canvas_widget') or not hasattr(self, 'canvas_rect'):
+            return
+            
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
@@ -533,7 +603,7 @@ class TransparentOverlay(QWidget):
         painter.drawRect(canvas_rect)
         
         # Draw canvas content (scaled if necessary)
-        if not self.canvas_pixmap.isNull():
+        if hasattr(self, 'canvas_pixmap') and not self.canvas_pixmap.isNull():
             painter.drawPixmap(canvas_x, canvas_y, self.canvas_pixmap)
             
         # Optional: Draw handwriting bounds for debugging (uncomment to see bounds)
@@ -670,98 +740,62 @@ class TransparentOverlay(QWidget):
         self.close()
 
 
-class HotkeyManager:
-    """Manages local keyboard shortcuts"""
+class GlobalHotkeyManager:
+    """Manages global keyboard shortcuts for system tray app"""
     
-    def __init__(self, main_window):
-        self.main_window = main_window
+    def __init__(self, main_app):
+        self.main_app = main_app
         self.enabled = False
         
     def start_listening(self):
-        """Set up local shortcuts"""
+        """Set up global shortcuts using pynput if available"""
         try:
-            # Create a local shortcut instead of global
-            self.shortcut = QShortcut(QKeySequence("Ctrl+Shift+I"), self.main_window)
-            self.shortcut.activated.connect(self.on_hotkey_pressed)
+            import pynput.keyboard as keyboard
+            
+            def on_hotkey():
+                """Handle global hotkey press"""
+                self.main_app.open_overlay()
+            
+            # Set up global hotkey Ctrl+Shift+I
+            self.hotkey = keyboard.GlobalHotKeys({
+                '<ctrl>+<shift>+i': on_hotkey
+            })
+            self.hotkey.start()
             self.enabled = True
             return True
+            
+        except ImportError:
+            print("pynput not available - global hotkeys disabled")
+            return False
         except Exception as e:
-            print(f"Failed to setup shortcut: {e}")
+            print(f"Failed to setup global hotkey: {e}")
             return False
     
     def stop_listening(self):
-        """Stop listening"""
+        """Stop listening for global hotkeys"""
+        if hasattr(self, 'hotkey') and self.hotkey:
+            try:
+                self.hotkey.stop()
+            except:
+                pass
         self.enabled = False
-    
-    def on_hotkey_pressed(self):
-        """Handle shortcut press"""
-        self.main_window.open_drawing_canvas()
 
 
-class Ink2TeXMainWindow(QMainWindow):
-    """Simplified main application window for Ink2TeX"""
+class Ink2TeXSystemTrayApp(QWidget):
+    """System tray application for Ink2TeX"""
     
     def __init__(self):
         super().__init__()
-        self.init_ui()
+        self.overlay = None
+        self.init_app()
         self.setup_gemini_api()
-        self.setup_enhanced_features()
+        self.setup_system_tray()
+        self.setup_global_hotkeys()
         
-    def init_ui(self):
-        """Initialize the simplified user interface"""
-        self.setWindowTitle("Ink2TeX - Handwritten Math to LaTeX Converter")
-        self.setGeometry(100, 100, 400, 300)
-        
-        # Create central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Title
-        title = QLabel("Ink2TeX Converter")
-        title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
-        
-        # Description
-        desc = QLabel("Click below to open the transparent overlay and start converting handwritten math to LaTeX")
-        desc.setWordWrap(True)
-        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc.setStyleSheet("color: #666; margin: 20px;")
-        layout.addWidget(desc)
-        
-        # Main button
-        self.open_overlay_btn = QPushButton("🖊️ Open Transparent Overlay")
-        self.open_overlay_btn.setMinimumHeight(60)
-        self.open_overlay_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
-        self.open_overlay_btn.clicked.connect(self.open_drawing_canvas)
-        layout.addWidget(self.open_overlay_btn)
-        
-        # Hotkey info
-        hotkey_label = QLabel("Shortcut: Ctrl+Shift+I (when window focused)")
-        hotkey_label.setStyleSheet("color: #999; font-style: italic; font-size: 10px;")
-        hotkey_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(hotkey_label)
-        
-        # Status label
-        self.status_label = QLabel("Ready to convert handwritten math!")
-        self.status_label.setWordWrap(True)
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet("margin: 20px; padding: 10px; background-color: #f0f0f0; border-radius: 5px;")
-        layout.addWidget(self.status_label)
+    def init_app(self):
+        """Initialize the application without showing a window"""
+        # Hide the main window - we only use system tray
+        self.hide()
         
     def setup_gemini_api(self):
         """Setup Gemini API using config file"""
@@ -770,38 +804,153 @@ class Ink2TeXMainWindow(QMainWindow):
             api_key = ConfigReader.read_api_key_from_config()
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-            self.status_label.setText("✓ Gemini API configured successfully!")
+            print("✓ Gemini API configured successfully!")
             
         except Exception as e:
-            self.status_label.setText(f"❌ API setup failed: {str(e)}")
-            QMessageBox.warning(self, "API Error", 
-                              f"Failed to setup Gemini API: {str(e)}\n\n"
-                              "Please check your .config file with GOOGLE_API_KEY.")
+            print(f"❌ API setup failed: {str(e)}")
+            self.show_message("API Error", 
+                            f"Failed to setup Gemini API: {str(e)}\n\n"
+                            "Please check your .config file with GOOGLE_API_KEY.", 
+                            QSystemTrayIcon.MessageIcon.Critical)
     
-    def setup_enhanced_features(self):
-        """Setup enhanced features"""
-        try:
-            # Setup hotkey manager
-            self.hotkey_manager = HotkeyManager(self)
-            
-            # Try to start hotkey listener
-            if self.hotkey_manager.start_listening():
-                self.status_label.setText("✓ Ready! Use Ctrl+Shift+I or click canvas button")
-            else:
-                self.status_label.setText("⚠️ Shortcut setup failed - use button instead")
-                
-        except Exception as e:
-            print(f"Error setting up enhanced features: {e}")
-            self.status_label.setText("✓ Basic mode ready - use canvas button")
+    def setup_system_tray(self):
+        """Setup system tray icon and menu"""
+        # Check if system tray is available
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            QMessageBox.critical(None, "System Tray", 
+                               "System tray is not available on this system.")
+            return
+        
+        # Create system tray icon
+        self.tray_icon = QSystemTrayIcon(self)
+        
+        # Create a simple icon (you can replace with a custom icon file)
+        self.create_tray_icon()
+        
+        # Create context menu
+        self.create_tray_menu()
+        
+        # Set up tray icon
+        self.tray_icon.setIcon(self.icon)
+        self.tray_icon.setToolTip("Ink2TeX - Handwritten Math to LaTeX Converter\nCtrl+Shift+I to open overlay")
+        
+        # Connect double-click to open overlay
+        self.tray_icon.activated.connect(self.on_tray_activated)
+        
+        # Show the tray icon
+        self.tray_icon.show()
+        
+        # Show startup notification
+        self.show_message("Ink2TeX Started", 
+                         "Ink2TeX is running in the background.\nPress Ctrl+Shift+I to open the overlay,\nor right-click the tray icon for options.",
+                         QSystemTrayIcon.MessageIcon.Information)
     
-    def open_drawing_canvas(self):
+    def create_tray_icon(self):
+        """Create a simple tray icon"""
+        # Create a simple icon with the Ink2TeX logo
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Draw a simple math symbol background
+        painter.setBrush(QBrush(QColor(70, 130, 180)))  # Steel blue
+        painter.setPen(QPen(QColor(25, 25, 112), 2))    # Navy border
+        painter.drawEllipse(2, 2, 28, 28)
+        
+        # Draw LaTeX symbol
+        painter.setPen(QPen(Qt.GlobalColor.white, 2))
+        painter.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        painter.drawText(8, 22, "∫")  # Integral symbol
+        
+        painter.end()
+        
+        self.icon = QIcon(pixmap)
+    
+    def create_tray_menu(self):
+        """Create the system tray context menu"""
+        self.tray_menu = QMenu()
+        
+        # Open Overlay action
+        open_action = QAction("🖊️ Open Overlay", self)
+        open_action.triggered.connect(self.open_overlay)
+        self.tray_menu.addAction(open_action)
+        
+        # Separator
+        self.tray_menu.addSeparator()
+        
+        # About action
+        about_action = QAction("ℹ️ About", self)
+        about_action.triggered.connect(self.show_about)
+        self.tray_menu.addAction(about_action)
+        
+        # Settings/Status action
+        status_action = QAction("⚙️ Status", self)
+        status_action.triggered.connect(self.show_status)
+        self.tray_menu.addAction(status_action)
+        
+        # Separator
+        self.tray_menu.addSeparator()
+        
+        # Exit action
+        exit_action = QAction("❌ Exit", self)
+        exit_action.triggered.connect(self.quit_application)
+        self.tray_menu.addAction(exit_action)
+        
+        # Set the menu
+        self.tray_icon.setContextMenu(self.tray_menu)
+    
+    def setup_global_hotkeys(self):
+        """Setup global hotkey support"""
+        self.hotkey_manager = GlobalHotkeyManager(self)
+        
+        if self.hotkey_manager.start_listening():
+            print("✓ Global hotkey (Ctrl+Shift+I) enabled")
+        else:
+            print("⚠️ Global hotkey setup failed")
+    
+    def on_tray_activated(self, reason):
+        """Handle tray icon activation"""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.open_overlay()
+    
+    def open_overlay(self):
         """Open the transparent overlay"""
         try:
-            self.overlay = TransparentOverlay(self)
-            self.overlay.show()
-            self.status_label.setText("🖊️ Transparent overlay opened - draw your math!")
+            # Close existing overlay if open
+            if self.overlay:
+                self.overlay.close()
+                self.overlay = None
+            
+            # Use QTimer to defer overlay creation to avoid threading issues
+            QTimer.singleShot(50, self._create_overlay)
+            
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open overlay: {str(e)}")
+            print(f"Error opening overlay: {str(e)}")
+            self.show_message("Error", f"Failed to open overlay: {str(e)}", 
+                            QSystemTrayIcon.MessageIcon.Critical)
+    
+    def _create_overlay(self):
+        """Create and show the overlay (called from main thread)"""
+        try:
+            # Ensure we're in the main thread
+            self.overlay = TransparentOverlay(self)
+            
+            # Show overlay with proper threading
+            self.overlay.show()
+            self.overlay.raise_()
+            self.overlay.activateWindow()
+            
+            # Set focus to overlay to ensure it's interactive
+            self.overlay.setFocus()
+            
+            print("🖊️ Transparent overlay opened")
+            
+        except Exception as e:
+            print(f"Error creating overlay: {str(e)}")
+            self.show_message("Error", f"Failed to create overlay: {str(e)}", 
+                            QSystemTrayIcon.MessageIcon.Critical)
     
     def convert_image_to_latex(self, image_path, callback):
         """Convert image to LaTeX using Gemini API"""
@@ -814,41 +963,139 @@ class Ink2TeXMainWindow(QMainWindow):
         except Exception as e:
             print(f"Failed to start conversion: {e}")
     
-    def closeEvent(self, event):
-        """Handle window close event"""
-        try:
+    def show_about(self):
+        """Show about dialog"""
+        about_text = """
+<h3>Ink2TeX</h3>
+<p><b>Version:</b> 1.0</p>
+<p><b>Description:</b> Handwritten Math to LaTeX Converter</p>
+<p><b>Author:</b> GitHub Copilot</p>
+<p><b>Date:</b> July 12, 2025</p>
+
+<h4>Features:</h4>
+<ul>
+<li>🖊️ Transparent system overlay</li>
+<li>🤖 AI-powered conversion using Google Gemini</li>
+<li>👁️ Live LaTeX preview</li>
+<li>📋 Clipboard integration</li>
+<li>⌨️ Global hotkey (Ctrl+Shift+I)</li>
+</ul>
+
+<h4>Usage:</h4>
+<p>Press <b>Ctrl+Shift+I</b> anywhere to open the overlay,<br>
+draw your math equation, and press <b>Enter</b> to convert.</p>
+"""
+        
+        msg = QMessageBox()
+        msg.setWindowTitle("About Ink2TeX")
+        msg.setText(about_text)
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.exec()
+    
+    def show_status(self):
+        """Show application status"""
+        hotkey_status = "✓ Enabled" if self.hotkey_manager.enabled else "❌ Disabled"
+        api_status = "✓ Configured" if hasattr(self, 'model') else "❌ Not configured"
+        
+        status_text = f"""
+<h3>Ink2TeX Status</h3>
+
+<p><b>Global Hotkey:</b> {hotkey_status}</p>
+<p><b>Gemini API:</b> {api_status}</p>
+<p><b>System Tray:</b> ✓ Active</p>
+
+<h4>Controls:</h4>
+<ul>
+<li><b>Ctrl+Shift+I:</b> Open overlay (global)</li>
+<li><b>Double-click tray icon:</b> Open overlay</li>
+<li><b>Right-click tray icon:</b> Show menu</li>
+</ul>
+
+<h4>Overlay Controls:</h4>
+<ul>
+<li><b>Enter:</b> Generate LaTeX</li>
+<li><b>Esc:</b> Close and copy to clipboard</li>
+<li><b>Ctrl+Z:</b> Undo last stroke</li>
+</ul>
+"""
+        
+        msg = QMessageBox()
+        msg.setWindowTitle("Ink2TeX Status")
+        msg.setText(status_text)
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setIcon(QMessageBox.Icon.Information)
+        msg.exec()
+    
+    def show_message(self, title, message, icon=QSystemTrayIcon.MessageIcon.Information):
+        """Show system tray notification"""
+        if self.tray_icon:
+            self.tray_icon.showMessage(title, message, icon, 3000)  # 3 seconds
+    
+    def quit_application(self):
+        """Quit the application"""
+        # Stop global hotkeys
+        if hasattr(self, 'hotkey_manager'):
             self.hotkey_manager.stop_listening()
-        except:
-            pass
-        event.accept()
+        
+        # Close overlay if open
+        if self.overlay:
+            self.overlay.close()
+        
+        # Hide tray icon
+        if hasattr(self, 'tray_icon'):
+            self.tray_icon.hide()
+        
+        print("Ink2TeX shutting down...")
+        QApplication.quit()
+    
+    def closeEvent(self, event):
+        """Handle close event - minimize to tray instead of closing"""
+        # When user tries to close, just hide to tray
+        event.ignore()
+        self.hide()
+        
+        if self.tray_icon:
+            self.show_message("Ink2TeX", 
+                            "Application is still running in the system tray.\nRight-click the tray icon to exit.",
+                            QSystemTrayIcon.MessageIcon.Information)
 
 
 def main():
-    """Main application entry point"""
+    """Main function to run the Ink2TeX system tray application"""
     app = QApplication(sys.argv)
     
     # Set application properties
+    app.setQuitOnLastWindowClosed(False)  # Keep running when overlay closes
     app.setApplicationName("Ink2TeX")
     app.setApplicationVersion("1.0")
+    app.setApplicationDisplayName("Ink2TeX - Handwritten Math to LaTeX")
     app.setOrganizationName("Ink2TeX")
     
+    # Check if system tray is available
+    if not QSystemTrayIcon.isSystemTrayAvailable():
+        QMessageBox.critical(None, "System Tray Error", 
+                           "System tray is not available on this system.\n"
+                           "Ink2TeX requires system tray support to run in the background.")
+        return 1
+    
     try:
-        # Create and show main window
-        window = Ink2TeXMainWindow()
-        window.show()
+        # Create the system tray application
+        tray_app = Ink2TeXSystemTrayApp()
         
-        # Start the event loop
-        sys.exit(app.exec())
+        # The app is now running in the background with system tray
+        print("🚀 Ink2TeX system tray application started!")
+        print("   - Right-click the tray icon for options")
+        print("   - Press Ctrl+Shift+I anywhere to open overlay")
+        print("   - Double-click tray icon to open overlay")
+        
+        return app.exec()
         
     except Exception as e:
-        print(f"Error starting application: {e}")
-        QMessageBox.critical(None, "Startup Error", 
-                           f"Failed to start Ink2TeX:\n{str(e)}\n\n"
-                           "Please check:\n"
-                           "1. All dependencies are installed\n"
-                           "2. .config file exists with Google API key\n"
-                           "3. Internet connection is available")
-        sys.exit(1)
+        print(f"Failed to start application: {e}")
+        QMessageBox.critical(None, "Application Error", 
+                           f"Failed to start Ink2TeX: {str(e)}")
+        return 1
 
 
 if __name__ == "__main__":
