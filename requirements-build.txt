@@ -1,0 +1,15 @@
+# Ink2TeX Deployment Requirements
+# This file specifies the exact versions for building the executable
+
+# Core dependencies (from your existing app)
+PyQt6==6.7.1
+Pillow==10.4.0
+google-generativeai==0.8.3
+matplotlib==3.9.1
+pynput==1.7.7
+
+# Build dependencies
+pyinstaller==6.11.1
+
+# Optional: For better icon/resource handling
+pillow-heif==0.18.0
