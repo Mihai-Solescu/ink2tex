@@ -52,13 +52,13 @@ except ImportError:
 
 
 class ConfigReader:
-    """Utility class to read configuration from .config file"""
+    """Utility class to read configuration from .api and .config files"""
     
     @staticmethod
-    def read_api_key_from_config(config_path='.config'):
-        """Read Google API key from config file"""
+    def read_api_key_from_config(config_path='.api'):
+        """Read Google API key from .api file"""
         if not os.path.exists(config_path):
-            raise FileNotFoundError(f"Configuration file '{config_path}' not found.")
+            raise FileNotFoundError(f"API configuration file '{config_path}' not found.")
         
         with open(config_path, 'r') as f:
             lines = f.readlines()
@@ -73,7 +73,45 @@ class ConfigReader:
                 if key_part:
                     return key_part
         
-        raise ValueError("API key not found in .config file")
+        raise ValueError("API key not found in .api file")
+    
+    @staticmethod
+    def read_config_value(key, config_path='.config', default=None):
+        """Read a configuration value from .config file"""
+        if not os.path.exists(config_path):
+            return default
+        
+        with open(config_path, 'r') as f:
+            lines = f.readlines()
+        
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+                
+            if '=' in line and line.upper().startswith(key.upper()):
+                value = line.split('=', 1)[1].strip()
+                if value:
+                    return value
+        
+        return default
+    
+    @staticmethod
+    def read_prompt_from_file(prompt_file=None):
+        """Read the Gemini prompt from file"""
+        if prompt_file is None:
+            prompt_file = ConfigReader.read_config_value('PROMPT_FILE', default='prompt.txt')
+        
+        if not os.path.exists(prompt_file):
+            # Fallback to default prompt if file not found
+            return """From the provided image, convert the handwritten mathematics into LaTeX. Follow these rules exactly:
+
+1.  Each line of handwritten text must be on its own new line in the output.
+2.  Enclose each separate line of LaTeX within single dollar signs ($).
+3.  Your entire response must consist ONLY of the resulting LaTeX code. Do not add any introductory text, explanations, or markdown formatting like ```latex."""
+        
+        with open(prompt_file, 'r', encoding='utf-8') as f:
+            return f.read().strip()
 
 
 class ConversionThread(QThread):
@@ -91,14 +129,8 @@ class ConversionThread(QThread):
             # Load image
             img = Image.open(self.image_path)
             
-            # Prompt for handwriting to LaTeX conversion
-            prompt = """
-From the provided image, convert the handwritten mathematics into LaTeX. Follow these rules exactly:
-
-1.  Each line of handwritten text must be on its own new line in the output.
-2.  Enclose each separate line of LaTeX within single dollar signs ($).
-3.  Your entire response must consist ONLY of the resulting LaTeX code. Do not add any introductory text, explanations, or markdown formatting like ```latex.
-"""
+            # Load prompt from file
+            prompt = ConfigReader.read_prompt_from_file()
             
             # Send request to Gemini
             response = self.model.generate_content([prompt, img])
