@@ -43,6 +43,8 @@ Source: "..\.api"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\.config"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: UpdateConfigFile  
 Source: "..\prompt.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+; Include modular source structure for runtime module imports
+Source: "..\src\ink2tex\*"; DestDir: "{app}\src\ink2tex"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

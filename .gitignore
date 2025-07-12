@@ -1,10 +1,26 @@
+# Virtual environment
+.venv/
+venv/
+env/
+build_venv/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+
 # API keys and secrets
 # Do not share these files publicly
 .api
 
+# Configuration files (should be created by user)
+.config
+
 # Temporary files
 temp/
 temp_overlay_drawing.png
+*.tmp
+*.log
 
 # Build outputs
 installer_output/
@@ -12,15 +28,16 @@ installer_output/
 # Environment variables
 .env
 
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+*.pyd
 *.so
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -34,12 +51,25 @@ wheels/
 .installed.cfg
 *.egg
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
 # Jupyter Notebook
 .ipynb_checkpoints
-
-# VS Code
-.vscode/
 
 # Operating System
 .DS_Store
 Thumbs.db
+
+# Distribution files
+*.exe
+*.msi
+
+# Test files
+test_*.py
+
+# Documentation build
+docs/_build/

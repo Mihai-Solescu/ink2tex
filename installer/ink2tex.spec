@@ -16,13 +16,14 @@ version = '1.0.0'
 
 # Collect all data files that need to be included
 data_files = [
-    ('../.api', '.'),           # API key file
+    ('../.api', '.'),           # API key file (relative to installer/)
     ('../.config', '.'),        # Configuration file  
     ('../prompt.txt', '.'),     # AI prompt file
     ('../README.md', '.'),      # Documentation
+    ('../src/ink2tex', 'src/ink2tex'),  # Include entire modular package
 ]
 
-# Ensure hidden imports match your choice of PyQt6
+# Ensure hidden imports match your choice of PyQt6 and include all modular components
 hidden_imports = [
     'numpy',
     'matplotlib',
@@ -38,26 +39,37 @@ hidden_imports = [
     'queue',
     'multiprocessing.pool',
     'multiprocessing.util',
+    # Include all modular components
+    'src.ink2tex',
+    'src.ink2tex.app',
+    'src.ink2tex.core',
+    'src.ink2tex.core.config',
+    'src.ink2tex.core.startup',
+    'src.ink2tex.core.hotkey',
+    'src.ink2tex.core.api',
+    'src.ink2tex.ui',
+    'src.ink2tex.ui.overlay',
+    'src.ink2tex.ui.preview',
+    'src.ink2tex.ui.settings',
 ]
 
 # Exclude unnecessary modules to reduce file size
 # Note: Being conservative with exclusions to avoid runtime errors
 excludes = [
-    #'tkinter',  # GUI toolkit we don't use (we use PyQt6)
-    #'test',     # Python test modules
-    #'unittest', # Python unit testing
-    #'pydoc',    # Python documentation generator
-    # Removed: pdb, doctest, difflib, inspect - these might be used by dependencies
+    'tkinter',  # GUI toolkit we don't use (we use PyQt6)
+    'test',     # Python test modules
+    'unittest', # Python unit testing
+    'pydoc',    # Python documentation generator
 ]
 
 a = Analysis(
-    ['../main.py'],
-    pathex=[],
+    ['../src/ink2tex/main.py'],  # Paths relative to installer directory
+    pathex=['../src'],  # Paths where the modules are
     binaries=collect_dynamic_libs('numpy'),
     datas=data_files,
     hiddenimports=hidden_imports,
     hookspath=[],
-    runtime_hooks=['installer/hooks/runtime_hook_numpy.py'],
+    runtime_hooks=['hooks/runtime_hook_numpy.py'],  # Relative to installer directory
     hooksconfig={},
     excludes=excludes,
     win_no_prefer_redirects=False,
@@ -88,7 +100,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/icon.ico' if Path('assets/icon.ico').exists() else None,
+    icon='../assets/icon.ico' if Path('../assets/icon.ico').exists() else None,
     version='version_info.txt' if Path('version_info.txt').exists() else None,
 )
 
@@ -98,8 +110,8 @@ import os
 
 def move_to_standalone():
     """Move the built executable to dist/standalone directory"""
-    source_dir = 'dist'
-    target_dir = 'dist/standalone'
+    source_dir = '../dist'  # PyInstaller creates dist in base directory
+    target_dir = '../dist/standalone'
     
     # Create standalone directory
     if not os.path.exists(target_dir):

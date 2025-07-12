@@ -1,0 +1,95 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ink2tex"
+version = "1.0.0"
+description = "Handwritten Math to LaTeX Converter using Google Gemini AI"
+readme = "README.md"
+license = {text = "MIT"}
+keywords = ["latex", "math", "handwriting", "ocr", "gemini", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "PyQt6>=6.4.0",
+    "google-generativeai>=0.8.0",
+    "Pillow>=9.0.0",
+    "matplotlib>=3.5.0",
+    "pyperclip>=1.8.0",
+    "pynput>=1.7.0",
+    "pyautogui>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-qt>=4.0.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "flake8>=4.0.0",
+]
+build = [
+    "pyinstaller>=5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ink2tex/ink2tex"
+Documentation = "https://github.com/ink2tex/ink2tex/blob/main/README.md"
+Repository = "https://github.com/ink2tex/ink2tex.git"
+"Bug Tracker" = "https://github.com/ink2tex/ink2tex/issues"
+
+[project.scripts]
+ink2tex = "ink2tex.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ink2tex = ["assets/*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["ink2tex"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
