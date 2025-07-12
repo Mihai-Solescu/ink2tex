@@ -68,8 +68,9 @@ Thumbs.db
 *.exe
 *.msi
 
-# Test files
+# Test files (exclude temporary test scripts but keep the test suite)
 test_*.py
+!tests/test_*.py  # But include files in the tests/ directory
 
 # Documentation build
 docs/_build/
