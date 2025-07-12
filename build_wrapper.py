@@ -41,12 +41,14 @@ Available commands:
   --init      - Initialize virtual environment (.venv)
   --startup   - Test application startup
   --clean     - Clean build artifacts
+  --analyze   - Analyze project dependencies
   --help      - Show this help
 
 Examples:
   python build_wrapper.py           (runs full build)
   python build_wrapper.py --exe     (builds executable only)
   python build_wrapper.py --init    (sets up virtual environment)
+  python build_wrapper.py --analyze (checks dependencies)
   python build_wrapper.py --startup (tests app startup)
         """
     )
@@ -58,6 +60,7 @@ Examples:
     parser.add_argument('--init', action='store_true', help='Initialize virtual environment')
     parser.add_argument('--startup', action='store_true', help='Test application startup')
     parser.add_argument('--clean', action='store_true', help='Clean build artifacts')
+    parser.add_argument('--analyze', action='store_true', help='Analyze project dependencies')
     
     args = parser.parse_args()
     
@@ -77,6 +80,8 @@ Examples:
         command = 'startup'
     elif args.clean:
         command = 'clean'
+    elif args.analyze:
+        command = 'analyze'
     else:
         # Default to full build if no arguments provided
         command = 'full'
@@ -97,6 +102,7 @@ Examples:
         print("  --init      - Initialize virtual environment (.venv)")
         print("  --startup   - Test application startup")
         print("  --clean     - Clean build artifacts")
+        print("  --analyze   - Analyze project dependencies")
         print("  --help      - Show this help")
         print()
         print("Usage: python build_wrapper.py [--option]")
@@ -121,14 +127,15 @@ Examples:
         'test': 'test_deployment.py',
         'init': 'init_venv.py',
         'startup': '../test_startup.py',  # Special case - in project root
-        'clean': 'clean.py'
+        'clean': 'clean.py',
+        'analyze': 'analyze_imports.py'
     }
     
     if command not in command_map:
         print(f"Invalid choice: \"{command}\"")
         print()
-        print("Valid options: --full, --exe, --installer, --test, --init, --startup, --clean, --help")
-        print("Usage: python build_wrapper.py [--full|--exe|--installer|--test|--init|--startup|--clean|--help]")
+        print("Valid options: --full, --exe, --installer, --test, --init, --startup, --clean, --analyze, --help")
+        print("Usage: python build_wrapper.py [--full|--exe|--installer|--test|--init|--startup|--clean|--analyze|--help]")
         sys.exit(1)
     
     script_name = command_map[command]

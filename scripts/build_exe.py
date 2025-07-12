@@ -73,6 +73,39 @@ def check_and_setup_venv(PROJECT_ROOT):
     
     return python_exe
 
+def analyze_imports(PROJECT_ROOT, python_exe):
+    """Analyze project dependencies before building"""
+    print()
+    print("[1.5/6] Analyzing project dependencies...")
+    
+    # Import the analyze_imports module
+    analyze_script = PROJECT_ROOT / "scripts" / "analyze_imports.py"
+    
+    if analyze_script.exists():
+        print("Running dependency analysis...")
+        cmd = f'"{python_exe}" "{analyze_script}"'
+        
+        try:
+            result = subprocess.run(cmd, shell=True, cwd=PROJECT_ROOT, 
+                                  capture_output=True, text=True, check=False)
+            print(result.stdout)
+            
+            if result.stderr:
+                print("⚠️ Analysis warnings:")
+                print(result.stderr)
+                
+            if result.returncode != 0:
+                print(f"⚠️ Analysis completed with warnings (exit code: {result.returncode})")
+            else:
+                print("✓ Dependency analysis completed successfully")
+                
+        except Exception as e:
+            print(f"⚠️ Could not run dependency analysis: {e}")
+            print("Continuing with build...")
+    else:
+        print(f"⚠️ Analysis script not found: {analyze_script}")
+        print("Skipping dependency analysis...")
+
 def clean_previous_builds(PROJECT_ROOT):
     """Clean previous build artifacts"""
     print()
@@ -331,6 +364,9 @@ def main():
     python_exe = check_and_setup_venv(PROJECT_ROOT)
     if not python_exe:
         return 1
+    
+    # Step 1.5: Analyze imports and dependencies
+    analyze_imports(PROJECT_ROOT, python_exe)
     
     # Step 2: Clean previous builds
     clean_previous_builds(PROJECT_ROOT)

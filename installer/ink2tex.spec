@@ -38,6 +38,10 @@ hidden_imports = [
     'queue',
     'multiprocessing.pool',
     'multiprocessing.util',
+    'psutil',  # Required for single instance management
+    'pyperclip',  # Clipboard operations
+    'atexit',  # Exit handlers
+    'winreg',  # Windows registry access
     # Include all modular components
     'src.ink2tex',
     'src.ink2tex.app',
@@ -46,6 +50,7 @@ hidden_imports = [
     'src.ink2tex.core.startup',
     'src.ink2tex.core.hotkey',
     'src.ink2tex.core.api',
+    'src.ink2tex.core.single_instance',  # Single instance management
     'src.ink2tex.ui',
     'src.ink2tex.ui.overlay',
     'src.ink2tex.ui.preview',
