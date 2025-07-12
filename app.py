@@ -233,6 +233,10 @@ class TransparentOverlay(QWidget):
         # Make completely transparent background
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
+        # Ensure the overlay can receive focus and keyboard events
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_KeyCompression, False)
+        
         # Store screen dimensions
         self.screen_width = screen.width()
         self.screen_height = screen.height()
@@ -277,14 +281,19 @@ class TransparentOverlay(QWidget):
         preview_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         preview_layout.addWidget(preview_label)
         
-        # Create matplotlib canvas for LaTeX preview (lightweight)
-        self.preview_figure = Figure(figsize=(4, 2), facecolor='white', dpi=60)  # Lower DPI for faster rendering
-        self.preview_canvas = FigureCanvas(self.preview_figure)
-        self.preview_canvas.setMinimumSize(280, 150)  # Smaller for faster rendering
-        preview_layout.addWidget(self.preview_canvas)
+        # Create matplotlib canvas for LaTeX preview (deferred for speed)
+        self.preview_figure = None
+        self.preview_canvas = None
         
-        # Initialize with simple placeholder to avoid initial rendering delay
-        QTimer.singleShot(200, self._init_preview_placeholder)
+        # Create placeholder widget that will be replaced with matplotlib canvas when needed
+        self.preview_placeholder = QLabel("LaTeX preview will appear here\n(loads on first use)")
+        self.preview_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_placeholder.setStyleSheet("color: gray; font-style: italic;")
+        self.preview_placeholder.setMinimumSize(280, 150)
+        preview_layout.addWidget(self.preview_placeholder)
+        
+        # Will create matplotlib canvas on first use for faster startup
+        self.preview_initialized = False
         
         # Edit window
         edit_panel = QWidget()
@@ -339,17 +348,35 @@ class TransparentOverlay(QWidget):
         if hasattr(self, 'canvas_widget') and self.canvas_widget:
             self.canvas_widget.setCursor(Qt.CursorShape.CrossCursor)
     
-    def _init_preview_placeholder(self):
-        """Initialize preview with placeholder (deferred to avoid blocking)"""
+    def _init_preview_canvas(self):
+        """Initialize matplotlib preview canvas on first use"""
+        if self.preview_initialized:
+            return
+            
         try:
+            # Create matplotlib canvas
+            self.preview_figure = Figure(figsize=(4, 2), facecolor='white', dpi=60)
+            self.preview_canvas = FigureCanvas(self.preview_figure)
+            self.preview_canvas.setMinimumSize(280, 150)
+            
+            # Replace placeholder with actual canvas
+            parent_layout = self.preview_placeholder.parent().layout()
+            parent_layout.replaceWidget(self.preview_placeholder, self.preview_canvas)
+            self.preview_placeholder.hide()
+            
+            # Initialize with placeholder text
             ax = self.preview_figure.add_subplot(111)
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             ax.axis('off')
-            ax.text(0.1, 0.5, "LaTeX preview will appear here", 
+            ax.text(0.1, 0.5, "LaTeX preview ready", 
                    transform=ax.transAxes, fontsize=9, color='gray',
                    ha='left', va='center')
             self.preview_canvas.draw()
+            
+            self.preview_initialized = True
+            print("✓ LaTeX preview initialized")
+            
         except Exception as e:
             print(f"Preview init warning: {e}")
         
@@ -578,11 +605,36 @@ class TransparentOverlay(QWidget):
         if hasattr(self, 'canvas_widget') and self.canvas_widget:
             self.canvas_widget.setCursor(Qt.CursorShape.CrossCursor)
         
-        # Set focus to enable keyboard events
-        self.setFocus()
+        # Aggressive focus management to ensure keyboard events work immediately
+        self.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.activateWindow()
+        self.raise_()
+        
+        # Use timer to ensure focus after window is fully rendered
+        QTimer.singleShot(50, lambda: self.setFocus(Qt.FocusReason.OtherFocusReason))
+        QTimer.singleShot(100, lambda: self.activateWindow())
         
         # Force update
         self.update()
+    
+    def focusInEvent(self, event):
+        """Handle focus in event to ensure keyboard events work"""
+        super().focusInEvent(event)
+        # Grab keyboard focus to ensure all key events come to this widget
+        self.grabKeyboard()
+        print("✓ Overlay has keyboard focus")
+    
+    def focusOutEvent(self, event):
+        """Handle focus out event"""
+        super().focusOutEvent(event)
+        # Release keyboard grab when losing focus
+        self.releaseKeyboard()
+    
+    def closeEvent(self, event):
+        """Handle close event"""
+        # Make sure to release keyboard grab when closing
+        self.releaseKeyboard()
+        super().closeEvent(event)
     
     def paintEvent(self, event):
         """Paint the overlay"""
@@ -616,7 +668,7 @@ class TransparentOverlay(QWidget):
     def keyPressEvent(self, event):
         """Handle key press events"""
         if event.key() == Qt.Key.Key_Escape:
-            self.close_and_copy()
+            self.close_overlay()
         elif event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
             self.generate_latex()
         elif event.key() == Qt.Key.Key_Z and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
@@ -694,6 +746,12 @@ class TransparentOverlay(QWidget):
     def update_preview(self):
         """Update LaTeX preview"""
         try:
+            # Initialize preview canvas on first use for faster startup
+            if not self.preview_initialized:
+                self._init_preview_canvas()
+                if not self.preview_initialized:
+                    return  # Failed to initialize
+            
             self.preview_figure.clear()
             ax = self.preview_figure.add_subplot(111)
             ax.set_xlim(0, 1)
@@ -733,10 +791,20 @@ class TransparentOverlay(QWidget):
             self.copy_btn.setStyleSheet("background-color: lightgreen; border: 1px solid green; padding: 2px;")
             QTimer.singleShot(200, lambda: self.copy_btn.setStyleSheet(original_style))
     
+    def close_overlay(self):
+        """Close overlay (always works, copies LaTeX if available)"""
+        if self.latex_text and CLIPBOARD_AVAILABLE:
+            pyperclip.copy(self.latex_text)
+        # Ensure keyboard is released before closing
+        self.releaseKeyboard()
+        self.close()
+    
     def close_and_copy(self):
         """Close overlay and copy LaTeX to clipboard"""
         if self.latex_text and CLIPBOARD_AVAILABLE:
             pyperclip.copy(self.latex_text)
+        # Ensure keyboard is released before closing
+        self.releaseKeyboard()
         self.close()
 
 
@@ -942,8 +1010,11 @@ class Ink2TeXSystemTrayApp(QWidget):
             self.overlay.raise_()
             self.overlay.activateWindow()
             
-            # Set focus to overlay to ensure it's interactive
-            self.overlay.setFocus()
+            # Stronger focus management to ensure keyboard events work immediately
+            self.overlay.setFocus(Qt.FocusReason.OtherFocusReason)
+            
+            # Use a timer to ensure focus is set after the window is fully shown
+            QTimer.singleShot(100, lambda: self.overlay.setFocus(Qt.FocusReason.OtherFocusReason))
             
             print("🖊️ Transparent overlay opened")
             

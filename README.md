@@ -6,11 +6,12 @@ A system tray application that converts handwritten mathematical equations to La
 
 - 🖊️ **Transparent Overlay**: Full-screen transparent canvas for drawing math equations
 - 🤖 **AI-Powered**: Uses Google Gemini 2.0 Flash Vision for accurate handwriting recognition
-- 👁️ **Live Preview**: Real-time LaTeX rendering with matplotlib
+- 👁️ **Live Preview**: Real-time LaTeX rendering (loads on first use for faster startup)
 - 📋 **Clipboard Integration**: Automatic copying to clipboard
 - ⌨️ **Global Hotkeys**: Access from anywhere with Ctrl+Shift+I
 - 🔄 **Smart Cropping**: Automatically crops to handwriting bounds
 - 🎯 **System Tray**: Runs in background, always available
+- ⚡ **Fast Startup**: Optimized initialization for quick overlay access
 
 ## Installation
 
@@ -57,7 +58,7 @@ python app.py
 
 3. **Generate LaTeX:**
    - Press `Enter` to convert handwriting to LaTeX
-   - Press `Esc` to close overlay and copy LaTeX to clipboard
+   - Press `Esc` to close overlay (copies LaTeX to clipboard if available)
    - Press `Ctrl+Z` to undo last drawing stroke
 
 ### System Tray Controls
