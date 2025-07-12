@@ -195,16 +195,22 @@ class LaTeXPreviewWidget(QWidget):
         self.canvas.draw()
 
 
-class DrawingCanvasOverlay(QWidget):
-    """Full-screen overlay for drawing handwritten math"""
+class TransparentOverlay(QWidget):
+    """Transparent full-screen overlay with canvas on right and preview/edit on left"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent_window = parent
+        self.current_image = None
+        self.latex_text = ""
         self.setup_overlay()
+        self.setup_ui()
         self.setup_drawing()
+        # Resize canvas after UI is set up
+        self.resize_canvas_for_screen()
         
     def setup_overlay(self):
-        """Setup the full-screen overlay"""
+        """Setup the transparent full-screen overlay"""
         # Make window full screen and on top
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | 
                            Qt.WindowType.WindowStaysOnTopHint |
@@ -214,39 +220,112 @@ class DrawingCanvasOverlay(QWidget):
         screen = QApplication.primaryScreen().geometry()
         self.setGeometry(screen)
         
-        # Semi-transparent background to dim the screen
-        self.setStyleSheet("background-color: rgba(0, 0, 0, 100);")
+        # Make completely transparent background
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        # Capture screenshot before overlay if available
-        self.capture_background()
+        # Store screen dimensions
+        self.screen_width = screen.width()
+        self.screen_height = screen.height()
         
-        # Drawing area in the center
-        self.drawing_rect = QRect(
-            screen.width() // 4, screen.height() // 4,
-            screen.width() // 2, screen.height() // 2
-        )
+    def setup_ui(self):
+        """Setup the UI layout matching the design"""
+        # Create main layout
+        self.setLayout(QHBoxLayout())
+        self.layout().setContentsMargins(50, 50, 50, 50)
         
-    def capture_background(self):
-        """Capture screenshot of current screen"""
-        if not SCREENSHOT_AVAILABLE:
-            self.background_pixmap = None
-            return
-            
-        try:
-            # Hide temporarily to capture clean screenshot
-            self.hide()
-            screenshot = pyautogui.screenshot()
-            # Convert PIL to QPixmap
-            screenshot_rgb = screenshot.convert('RGB')
-            w, h = screenshot_rgb.size
-            rgb_image = screenshot_rgb.tobytes('raw', 'RGB')
-            qimg = QPixmap.fromImage(qimg.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio))
-            self.background_pixmap = qimg
-            self.show()
-        except Exception as e:
-            print(f"Screenshot capture failed: {e}")
-            self.background_pixmap = None
-            
+        # Left side - Preview and Edit panels
+        left_panel = QWidget()
+        left_panel.setFixedWidth(400)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setSpacing(10)
+        
+        # Top toolbar buttons
+        toolbar = QWidget()
+        toolbar.setStyleSheet("background-color: rgba(50, 50, 50, 200); border-radius: 5px;")
+        toolbar_layout = QHBoxLayout(toolbar)
+        toolbar.setFixedHeight(40)
+        
+        self.upload_btn = QPushButton("📁 Upload")
+        self.upload_btn.setStyleSheet("color: white; border: none; padding: 5px;")
+        self.upload_btn.clicked.connect(self.upload_image)
+        
+        self.clear_btn = QPushButton("🗑️ Clear")
+        self.clear_btn.setStyleSheet("color: white; border: none; padding: 5px;")
+        self.clear_btn.clicked.connect(self.clear_canvas)
+        
+        toolbar_layout.addWidget(self.upload_btn)
+        toolbar_layout.addWidget(self.clear_btn)
+        toolbar_layout.addStretch()
+        
+        # LaTeX Preview panel
+        preview_panel = QWidget()
+        preview_panel.setStyleSheet("background-color: rgba(255, 255, 255, 230); border: 2px solid gray; border-radius: 5px;")
+        preview_panel.setFixedHeight(200)
+        preview_layout = QVBoxLayout(preview_panel)
+        
+        preview_label = QLabel("LaTeX Preview")
+        preview_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        preview_layout.addWidget(preview_label)
+        
+        # Create matplotlib canvas for LaTeX preview
+        self.preview_figure = Figure(figsize=(4, 2), facecolor='white', dpi=80)
+        self.preview_canvas = FigureCanvas(self.preview_figure)
+        preview_layout.addWidget(self.preview_canvas)
+        
+        # Edit window
+        edit_panel = QWidget()
+        edit_panel.setStyleSheet("background-color: rgba(255, 255, 255, 230); border: 2px solid gray; border-radius: 5px;")
+        edit_layout = QVBoxLayout(edit_panel)
+        
+        edit_header = QHBoxLayout()
+        edit_label = QLabel("Edit Window")
+        edit_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        
+        self.copy_btn = QPushButton("📋 Copy")
+        self.copy_btn.setStyleSheet("background-color: lightblue; border: 1px solid blue; padding: 2px;")
+        self.copy_btn.clicked.connect(self.copy_latex)
+        
+        edit_header.addWidget(edit_label)
+        edit_header.addStretch()
+        edit_header.addWidget(self.copy_btn)
+        
+        edit_layout.addLayout(edit_header)
+        
+        self.latex_edit = QTextEdit()
+        self.latex_edit.setPlaceholderText("Write LaTeX here...")
+        self.latex_edit.setStyleSheet("background-color: white; border: none;")
+        self.latex_edit.textChanged.connect(self.on_latex_changed)
+        edit_layout.addWidget(self.latex_edit)
+        
+        # Add panels to left layout
+        left_layout.addWidget(toolbar)
+        left_layout.addWidget(preview_panel)
+        left_layout.addWidget(edit_panel)
+        
+        # Right side - Drawing canvas with dashed border (covers rest of screen)
+        self.canvas_widget = QWidget()
+        self.canvas_widget.setStyleSheet("background-color: rgba(255, 255, 255, 50);")
+        
+        # Add to main layout
+        self.layout().addWidget(left_panel)
+        self.layout().addWidget(self.canvas_widget)
+        
+        # Canvas will cover the entire right side - calculate dynamically
+        self.update_canvas_dimensions()
+        
+    def update_canvas_dimensions(self):
+        """Update canvas dimensions to cover the entire right side"""
+        # Canvas covers from right side of left panel to screen edge
+        left_panel_width = 450  # 400px panel + 50px margin
+        canvas_start_x = 50  # Small margin from left panel
+        canvas_start_y = 50  # Small margin from top
+        
+        # Calculate available space (will be updated when overlay is shown)
+        canvas_width = max(600, self.screen_width - left_panel_width - 100)  # Ensure minimum size
+        canvas_height = max(400, self.screen_height - 150)  # Ensure minimum size, leave margin
+        
+        self.canvas_rect = QRect(canvas_start_x, canvas_start_y, canvas_width, canvas_height)
+        
     def setup_drawing(self):
         """Initialize drawing variables"""
         self.drawing = False
@@ -254,37 +333,170 @@ class DrawingCanvasOverlay(QWidget):
         self.brush_color = QColor(0, 0, 255)  # Blue ink
         self.last_point = QPoint()
         
-        # Canvas for drawing
-        self.canvas = QPixmap(self.drawing_rect.size())
-        self.canvas.fill(Qt.GlobalColor.white)
+        # Canvas for drawing - will be resized when overlay shows
+        self.canvas_pixmap = QPixmap(1000, 1000)  # Large default size
+        self.canvas_pixmap.fill(Qt.GlobalColor.transparent)
         
-        # Store drawn paths for undo functionality
+        # Store drawn paths for undo functionality and bounding box calculation
         self.drawn_paths = []
         
+    def resize_canvas_for_screen(self):
+        """Resize canvas pixmap to match actual screen dimensions"""
+        self.update_canvas_dimensions()
+        
+        # Create new pixmap with correct size
+        new_pixmap = QPixmap(self.canvas_rect.size())
+        new_pixmap.fill(Qt.GlobalColor.transparent)
+        
+        # Copy existing content if any
+        if not self.canvas_pixmap.isNull():
+            painter = QPainter(new_pixmap)
+            painter.drawPixmap(0, 0, self.canvas_pixmap)
+            painter.end()
+        
+        self.canvas_pixmap = new_pixmap
+        
+    def calculate_handwriting_bounds(self):
+        """Calculate the bounding rectangle of all handwriting with padding"""
+        if not self.drawn_paths:
+            return None
+            
+        # Find min/max coordinates of all drawn points
+        min_x = min_y = float('inf')
+        max_x = max_y = float('-inf')
+        
+        for path in self.drawn_paths:
+            for point in path:
+                min_x = min(min_x, point.x())
+                min_y = min(min_y, point.y())
+                max_x = max(max_x, point.x())
+                max_y = max(max_y, point.y())
+        
+        if min_x == float('inf'):  # No valid points
+            return None
+            
+        # Add padding around the handwriting
+        padding = 30
+        min_x = max(0, min_x - padding)
+        min_y = max(0, min_y - padding)
+        max_x = min(self.canvas_rect.width(), max_x + padding)
+        max_y = min(self.canvas_rect.height(), max_y + padding)
+        
+        # Ensure minimum size for AI recognition
+        min_width = 100
+        min_height = 100
+        
+        width = max(min_width, max_x - min_x)
+        height = max(min_height, max_y - min_y)
+        
+        return QRect(int(min_x), int(min_y), int(width), int(height))
+        
+    def crop_canvas_to_handwriting(self):
+        """Create a cropped image containing only the handwriting area"""
+        bounds = self.calculate_handwriting_bounds()
+        
+        if bounds is None:
+            # No handwriting, return full canvas or current image
+            if self.current_image:
+                return self.canvas_pixmap
+            else:
+                # Return empty white image
+                empty_pixmap = QPixmap(200, 200)
+                empty_pixmap.fill(Qt.GlobalColor.white)
+                return empty_pixmap
+        
+        # Create cropped image with white background
+        cropped_pixmap = QPixmap(bounds.size())
+        cropped_pixmap.fill(Qt.GlobalColor.white)
+        
+        # Copy the relevant part of the canvas using the correct drawPixmap overload
+        painter = QPainter(cropped_pixmap)
+        # Use the overload: drawPixmap(x, y, pixmap, sx, sy, sw, sh)
+        painter.drawPixmap(0, 0, self.canvas_pixmap, 
+                          bounds.x(), bounds.y(), bounds.width(), bounds.height())
+        painter.end()
+        
+        return cropped_pixmap
+        
+    def upload_image(self):
+        """Upload an image to display in the canvas"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Image", "",
+            "Image files (*.png *.jpg *.jpeg *.bmp *.tiff)")
+        
+        if file_path:
+            try:
+                # Load image
+                pixmap = QPixmap(file_path)
+                # Scale to fit canvas
+                scaled_pixmap = pixmap.scaled(self.canvas_rect.size(), 
+                                            Qt.AspectRatioMode.KeepAspectRatio,
+                                            Qt.TransformationMode.SmoothTransformation)
+                
+                # Clear canvas and set background image
+                self.canvas_pixmap = QPixmap(self.canvas_rect.size())
+                self.canvas_pixmap.fill(Qt.GlobalColor.white)
+                
+                painter = QPainter(self.canvas_pixmap)
+                # Center the image
+                x = (self.canvas_rect.width() - scaled_pixmap.width()) // 2
+                y = (self.canvas_rect.height() - scaled_pixmap.height()) // 2
+                painter.drawPixmap(x, y, scaled_pixmap)
+                painter.end()
+                
+                self.current_image = file_path
+                self.update()
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to load image: {str(e)}")
+    
+    def clear_canvas(self):
+        """Clear the drawing canvas"""
+        self.canvas_pixmap.fill(Qt.GlobalColor.transparent)
+        self.drawn_paths = []
+        self.current_image = None
+        self.update()
+    
     def mousePressEvent(self, event):
         """Handle mouse press events"""
         if event.button() == Qt.MouseButton.LeftButton:
-            # Check if click is in drawing area
-            if self.drawing_rect.contains(event.position().toPoint()):
+            # Get the actual canvas position on screen (dynamic size)
+            canvas_global_rect = QRect(
+                self.canvas_widget.x() + self.canvas_rect.x(),
+                self.canvas_widget.y() + self.canvas_rect.y(),
+                self.canvas_rect.width(),
+                self.canvas_rect.height()
+            )
+            
+            if canvas_global_rect.contains(event.position().toPoint()):
                 self.drawing = True
                 # Convert to canvas coordinates
-                canvas_point = event.position().toPoint() - self.drawing_rect.topLeft()
+                canvas_point = QPoint(
+                    event.position().toPoint().x() - canvas_global_rect.x(),
+                    event.position().toPoint().y() - canvas_global_rect.y()
+                )
                 self.last_point = canvas_point
-                
-                # Start new path
                 self.current_path = [canvas_point]
-            elif event.position().toPoint().y() < 50:  # Top area for close
-                self.close_overlay()
                 
     def mouseMoveEvent(self, event):
         """Handle mouse move events for drawing"""
         if (event.buttons() & Qt.MouseButton.LeftButton) and self.drawing:
-            if self.drawing_rect.contains(event.position().toPoint()):
+            canvas_global_rect = QRect(
+                self.canvas_widget.x() + self.canvas_rect.x(),
+                self.canvas_widget.y() + self.canvas_rect.y(),
+                self.canvas_rect.width(),
+                self.canvas_rect.height()
+            )
+            
+            if canvas_global_rect.contains(event.position().toPoint()):
                 # Convert to canvas coordinates
-                canvas_point = event.position().toPoint() - self.drawing_rect.topLeft()
+                canvas_point = QPoint(
+                    event.position().toPoint().x() - canvas_global_rect.x(),
+                    event.position().toPoint().y() - canvas_global_rect.y()
+                )
                 
                 # Draw line on canvas
-                painter = QPainter(self.canvas)
+                painter = QPainter(self.canvas_pixmap)
                 painter.setPen(QPen(self.brush_color, self.brush_size, 
                                   Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, 
                                   Qt.PenJoinStyle.RoundJoin))
@@ -309,31 +521,34 @@ class DrawingCanvasOverlay(QWidget):
     def paintEvent(self, event):
         """Paint the overlay"""
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Draw dimmed background if available
-        if hasattr(self, 'background_pixmap') and self.background_pixmap:
-            painter.setOpacity(0.3)
-            painter.drawPixmap(self.rect(), self.background_pixmap)
-            painter.setOpacity(1.0)
+        # Get canvas position in widget coordinates (dynamic size)
+        canvas_x = self.canvas_widget.x() + self.canvas_rect.x()
+        canvas_y = self.canvas_widget.y() + self.canvas_rect.y()
+        canvas_rect = QRect(canvas_x, canvas_y, self.canvas_rect.width(), self.canvas_rect.height())
         
-        # Draw white drawing area
-        painter.fillRect(self.drawing_rect, QBrush(Qt.GlobalColor.white))
-        painter.setPen(QPen(Qt.GlobalColor.black, 2))
-        painter.drawRect(self.drawing_rect)
+        # Draw dashed border around canvas
+        painter.setPen(QPen(QColor(100, 100, 100), 2, Qt.PenStyle.DashLine))
+        painter.drawRect(canvas_rect)
         
-        # Draw the canvas content
-        painter.drawPixmap(self.drawing_rect.topLeft(), self.canvas)
-        
-        # Draw instructions
-        painter.setPen(QPen(Qt.GlobalColor.white, 1))
-        painter.drawText(20, 30, "Draw your math equation in the white area | ESC: Cancel | ENTER: Convert | CTRL+Z: Undo")
+        # Draw canvas content (scaled if necessary)
+        if not self.canvas_pixmap.isNull():
+            painter.drawPixmap(canvas_x, canvas_y, self.canvas_pixmap)
+            
+        # Optional: Draw handwriting bounds for debugging (uncomment to see bounds)
+        # bounds = self.calculate_handwriting_bounds()
+        # if bounds:
+        #     painter.setPen(QPen(QColor(255, 0, 0), 1, Qt.PenStyle.DotLine))
+        #     debug_rect = QRect(canvas_x + bounds.x(), canvas_y + bounds.y(), bounds.width(), bounds.height())
+        #     painter.drawRect(debug_rect)
         
     def keyPressEvent(self, event):
         """Handle key press events"""
         if event.key() == Qt.Key.Key_Escape:
-            self.close_overlay()
+            self.close_and_copy()
         elif event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
-            self.convert_drawing()
+            self.generate_latex()
         elif event.key() == Qt.Key.Key_Z and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self.undo_last_stroke()
             
@@ -345,8 +560,26 @@ class DrawingCanvasOverlay(QWidget):
             
     def redraw_canvas(self):
         """Redraw the canvas from saved paths"""
-        self.canvas.fill(Qt.GlobalColor.white)
-        painter = QPainter(self.canvas)
+        # Preserve background image if exists
+        if self.current_image:
+            self.canvas_pixmap.fill(Qt.GlobalColor.white)
+            try:
+                pixmap = QPixmap(self.current_image)
+                scaled_pixmap = pixmap.scaled(self.canvas_rect.size(), 
+                                            Qt.AspectRatioMode.KeepAspectRatio,
+                                            Qt.TransformationMode.SmoothTransformation)
+                painter = QPainter(self.canvas_pixmap)
+                x = (self.canvas_rect.width() - scaled_pixmap.width()) // 2
+                y = (self.canvas_rect.height() - scaled_pixmap.height()) // 2
+                painter.drawPixmap(x, y, scaled_pixmap)
+                painter.end()
+            except:
+                pass
+        else:
+            self.canvas_pixmap.fill(Qt.GlobalColor.transparent)
+        
+        # Redraw all paths
+        painter = QPainter(self.canvas_pixmap)
         painter.setPen(QPen(self.brush_color, self.brush_size,
                           Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
                           Qt.PenJoinStyle.RoundJoin))
@@ -358,37 +591,82 @@ class DrawingCanvasOverlay(QWidget):
         
         painter.end()
         self.update()
+    
+    def generate_latex(self):
+        """Generate LaTeX from the current canvas (cropped to handwriting area)"""
+        if not (self.drawn_paths or self.current_image):
+            return
             
-    def convert_drawing(self):
-        """Convert the drawing to LaTeX and close overlay"""
-        if self.drawn_paths:
-            # Save canvas as image
-            canvas_image = self.canvas.toImage()
+        # Save only the cropped handwriting area
+        temp_path = "temp_overlay_drawing.png"
+        
+        # Get cropped image containing only handwriting with padding
+        cropped_image = self.crop_canvas_to_handwriting()
+        
+        # Save the cropped image
+        cropped_image.save(temp_path)
+        
+        # Convert using parent's conversion system
+        if self.parent_window and hasattr(self.parent_window, 'convert_image_to_latex'):
+            self.parent_window.convert_image_to_latex(temp_path, self.on_latex_result)
+    
+    def on_latex_result(self, latex_text):
+        """Handle LaTeX conversion result"""
+        self.latex_text = latex_text
+        self.latex_edit.setText(latex_text)
+        self.update_preview()
+    
+    def on_latex_changed(self):
+        """Handle manual LaTeX text changes"""
+        self.latex_text = self.latex_edit.toPlainText()
+        QTimer.singleShot(500, self.update_preview)  # Debounced update
+    
+    def update_preview(self):
+        """Update LaTeX preview"""
+        try:
+            self.preview_figure.clear()
+            ax = self.preview_figure.add_subplot(111)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis('off')
             
-            # Convert to PIL Image
-            buffer = canvas_image.bits().asstring(canvas_image.sizeInBytes())
-            pil_image = Image.frombytes("RGBA", 
-                                      (canvas_image.width(), canvas_image.height()), 
-                                      buffer)
-            # Convert to RGB
-            pil_image = pil_image.convert('RGB')
+            if self.latex_text.strip():
+                # Clean and render LaTeX
+                lines = [line.strip().replace('$', '') for line in self.latex_text.strip().split('\n') if line.strip()]
+                y_pos = 0.8
+                
+                for line in lines:
+                    if line and y_pos > 0:
+                        try:
+                            ax.text(0.05, y_pos, f'${line}$', 
+                                   fontsize=10, transform=ax.transAxes)
+                            y_pos -= 0.3
+                        except:
+                            ax.text(0.05, y_pos, line, 
+                                   fontsize=9, transform=ax.transAxes)
+                            y_pos -= 0.2
+            else:
+                ax.text(0.1, 0.5, "LaTeX preview will appear here", 
+                       transform=ax.transAxes, fontsize=10, color='gray')
             
-            # Save temporary image
-            temp_path = "temp_drawing.png"
-            pil_image.save(temp_path)
+            self.preview_canvas.draw()
             
-            # Signal parent to process this image
-            if hasattr(self.parent(), 'load_image'):
-                self.parent().load_image(temp_path)
-                self.parent().convert_to_latex()
-            
-            self.close_overlay()
-        else:
-            # No drawing, just close
-            self.close_overlay()
-            
-    def close_overlay(self):
-        """Close the overlay"""
+        except Exception as e:
+            print(f"Preview error: {e}")
+    
+    def copy_latex(self):
+        """Copy LaTeX to clipboard"""
+        if CLIPBOARD_AVAILABLE and self.latex_text:
+            pyperclip.copy(self.latex_text)
+            # Brief visual feedback
+            original_style = self.copy_btn.styleSheet()
+            self.copy_btn.setStyleSheet("background-color: lightgreen; border: 1px solid green; padding: 2px;")
+            QTimer.singleShot(200, lambda: self.copy_btn.setStyleSheet(original_style))
+    
+    def close_and_copy(self):
+        """Close overlay and copy LaTeX to clipboard"""
+        if self.latex_text and CLIPBOARD_AVAILABLE:
+            pyperclip.copy(self.latex_text)
         self.close()
 
 
@@ -421,7 +699,7 @@ class HotkeyManager:
 
 
 class Ink2TeXMainWindow(QMainWindow):
-    """Main application window for Ink2TeX"""
+    """Simplified main application window for Ink2TeX"""
     
     def __init__(self):
         super().__init__()
@@ -430,135 +708,60 @@ class Ink2TeXMainWindow(QMainWindow):
         self.setup_enhanced_features()
         
     def init_ui(self):
-        """Initialize the user interface"""
+        """Initialize the simplified user interface"""
         self.setWindowTitle("Ink2TeX - Handwritten Math to LaTeX Converter")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 400, 300)
         
-        # Create central widget and main layout
+        # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
-        
-        # Left panel for controls
-        left_panel = self.create_left_panel()
-        main_layout.addWidget(left_panel, 1)
-        
-        # Right panel for image and results
-        right_panel = self.create_right_panel()
-        main_layout.addWidget(right_panel, 2)
-        
-    def create_left_panel(self):
-        """Create the left control panel"""
-        panel = QWidget()
-        layout = QVBoxLayout(panel)
+        layout = QVBoxLayout(central_widget)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Title
         title = QLabel("Ink2TeX Converter")
-        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setFont(QFont("Arial", 20, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
         
+        # Description
+        desc = QLabel("Click below to open the transparent overlay and start converting handwritten math to LaTeX")
+        desc.setWordWrap(True)
+        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        desc.setStyleSheet("color: #666; margin: 20px;")
+        layout.addWidget(desc)
+        
+        # Main button
+        self.open_overlay_btn = QPushButton("🖊️ Open Transparent Overlay")
+        self.open_overlay_btn.setMinimumHeight(60)
+        self.open_overlay_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        self.open_overlay_btn.clicked.connect(self.open_drawing_canvas)
+        layout.addWidget(self.open_overlay_btn)
+        
         # Hotkey info
         hotkey_label = QLabel("Shortcut: Ctrl+Shift+I (when window focused)")
-        hotkey_label.setStyleSheet("color: #666; font-style: italic; font-size: 10px;")
-        hotkey_label.setWordWrap(True)
+        hotkey_label.setStyleSheet("color: #999; font-style: italic; font-size: 10px;")
+        hotkey_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hotkey_label)
-        
-        # Buttons
-        self.open_canvas_btn = QPushButton("🖊️ Open Drawing Canvas")
-        self.open_canvas_btn.setMinimumHeight(50)
-        self.open_canvas_btn.clicked.connect(self.open_drawing_canvas)
-        layout.addWidget(self.open_canvas_btn)
-        
-        self.select_image_btn = QPushButton("📁 Select Image File")
-        self.select_image_btn.setMinimumHeight(40)
-        self.select_image_btn.clicked.connect(self.select_image_file)
-        layout.addWidget(self.select_image_btn)
-        
-        self.convert_btn = QPushButton("🔄 Convert to LaTeX")
-        self.convert_btn.setMinimumHeight(40)
-        self.convert_btn.clicked.connect(self.convert_to_latex)
-        self.convert_btn.setEnabled(False)
-        layout.addWidget(self.convert_btn)
-        
-        # Progress bar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar)
         
         # Status label
         self.status_label = QLabel("Ready to convert handwritten math!")
         self.status_label.setWordWrap(True)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("margin: 20px; padding: 10px; background-color: #f0f0f0; border-radius: 5px;")
         layout.addWidget(self.status_label)
-        
-        layout.addStretch()
-        return panel
-        
-    def create_right_panel(self):
-        """Create the right panel with preview"""
-        panel = QWidget()
-        layout = QVBoxLayout(panel)
-        
-        # Create splitter for image and preview
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        
-        # Left side - original image display
-        image_group = QGroupBox("Handwritten Input")
-        image_layout = QVBoxLayout(image_group)
-        
-        self.image_label = QLabel("No image selected")
-        self.image_label.setMinimumHeight(200)
-        self.image_label.setStyleSheet("border: 2px dashed #aaa; background-color: #f9f9f9;")
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image_layout.addWidget(self.image_label)
-        
-        splitter.addWidget(image_group)
-        
-        # Right side - LaTeX preview
-        preview_group = QGroupBox("LaTeX Preview")
-        preview_layout = QVBoxLayout(preview_group)
-        
-        self.latex_preview = LaTeXPreviewWidget()
-        preview_layout.addWidget(self.latex_preview)
-        
-        splitter.addWidget(preview_group)
-        
-        # Set equal proportions
-        splitter.setSizes([300, 300])
-        layout.addWidget(splitter)
-        
-        # LaTeX output text area
-        latex_title = QLabel("LaTeX Code:")
-        latex_title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        layout.addWidget(latex_title)
-        
-        self.latex_output = QTextEdit()
-        self.latex_output.setPlaceholderText("LaTeX code will appear here...")
-        self.latex_output.setMaximumHeight(120)
-        
-        # Connect text change with timer to avoid too many updates
-        self.latex_timer = QTimer()
-        self.latex_timer.setSingleShot(True)
-        self.latex_timer.timeout.connect(self.on_latex_timer)
-        self.latex_output.textChanged.connect(self.on_latex_changed)
-        layout.addWidget(self.latex_output)
-        
-        # Buttons
-        button_layout = QHBoxLayout()
-        
-        self.copy_btn = QPushButton("📋 Copy to Clipboard")
-        self.copy_btn.clicked.connect(self.copy_to_clipboard)
-        self.copy_btn.setEnabled(False)
-        button_layout.addWidget(self.copy_btn)
-        
-        self.preview_btn = QPushButton("👁️ Update Preview")
-        self.preview_btn.clicked.connect(self.update_preview)
-        self.preview_btn.setEnabled(False)
-        button_layout.addWidget(self.preview_btn)
-        
-        layout.addLayout(button_layout)
-        
-        return panel
         
     def setup_gemini_api(self):
         """Setup Gemini API using config file"""
@@ -592,101 +795,24 @@ class Ink2TeXMainWindow(QMainWindow):
             self.status_label.setText("✓ Basic mode ready - use canvas button")
     
     def open_drawing_canvas(self):
-        """Open the drawing canvas overlay"""
+        """Open the transparent overlay"""
         try:
-            self.overlay = DrawingCanvasOverlay(self)
+            self.overlay = TransparentOverlay(self)
             self.overlay.show()
-            self.status_label.setText("🖊️ Drawing canvas opened - draw your math!")
+            self.status_label.setText("🖊️ Transparent overlay opened - draw your math!")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to open drawing canvas: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to open overlay: {str(e)}")
     
-    def select_image_file(self):
-        """Open file dialog to select an image"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select Handwritten Math Image", "",
-            "Image files (*.png *.jpg *.jpeg *.bmp *.tiff)")
-        
-        if file_path:
-            self.load_image(file_path)
-    
-    def load_image(self, file_path):
-        """Load and display the selected image"""
+    def convert_image_to_latex(self, image_path, callback):
+        """Convert image to LaTeX using Gemini API"""
         try:
-            # Load and display image
-            pixmap = QPixmap(file_path)
-            scaled_pixmap = pixmap.scaled(400, 300, Qt.AspectRatioMode.KeepAspectRatio, 
-                                        Qt.TransformationMode.SmoothTransformation)
-            self.image_label.setPixmap(scaled_pixmap)
-            
-            # Store image path and enable convert button
-            self.current_image_path = file_path
-            self.convert_btn.setEnabled(True)
-            self.status_label.setText(f"✓ Image loaded: {os.path.basename(file_path)}")
-            
+            # Start conversion in a separate thread
+            self.conversion_thread = ConversionThread(image_path, self.model)
+            self.conversion_thread.finished.connect(callback)
+            self.conversion_thread.error.connect(lambda error: print(f"Conversion error: {error}"))
+            self.conversion_thread.start()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load image: {str(e)}")
-    
-    def convert_to_latex(self):
-        """Convert the current image to LaTeX"""
-        if not hasattr(self, 'current_image_path'):
-            return
-            
-        # Show progress
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # Indeterminate progress
-        self.status_label.setText("🔄 Converting handwriting to LaTeX...")
-        
-        # Start conversion in a separate thread
-        self.conversion_thread = ConversionThread(self.current_image_path, self.model)
-        self.conversion_thread.finished.connect(self.on_conversion_finished)
-        self.conversion_thread.error.connect(self.on_conversion_error)
-        self.conversion_thread.start()
-    
-    def on_conversion_finished(self, latex_result):
-        """Handle successful conversion"""
-        self.progress_bar.setVisible(False)
-        self.latex_output.setText(latex_result)
-        self.copy_btn.setEnabled(True)
-        self.status_label.setText("✅ Conversion completed successfully!")
-        # Auto-update preview after a short delay
-        QTimer.singleShot(100, self.update_preview)
-    
-    def on_conversion_error(self, error_message):
-        """Handle conversion error"""
-        self.progress_bar.setVisible(False)
-        self.status_label.setText(f"❌ Conversion failed: {error_message}")
-        QMessageBox.critical(self, "Conversion Error", error_message)
-    
-    def on_latex_changed(self):
-        """Handle LaTeX text changes with debouncing"""
-        # Start/restart timer instead of immediate update
-        self.latex_timer.start(500)  # 500ms delay
-        
-    def on_latex_timer(self):
-        """Handle delayed latex change"""
-        has_text = bool(self.latex_output.toPlainText().strip())
-        self.preview_btn.setEnabled(has_text)
-        self.copy_btn.setEnabled(has_text)
-    
-    def update_preview(self):
-        """Update the LaTeX preview"""
-        latex_text = self.latex_output.toPlainText()
-        if latex_text.strip():
-            # Update in next event loop cycle to keep UI responsive
-            QTimer.singleShot(10, lambda: self.latex_preview.update_preview(latex_text))
-    
-    def copy_to_clipboard(self):
-        """Copy LaTeX output to clipboard"""
-        if not CLIPBOARD_AVAILABLE:
-            QMessageBox.warning(self, "Warning", "Clipboard functionality not available. Please install pyperclip.")
-            return
-            
-        latex_text = self.latex_output.toPlainText()
-        if latex_text:
-            pyperclip.copy(latex_text)
-            self.status_label.setText("📋 LaTeX copied to clipboard!")
-        else:
-            QMessageBox.warning(self, "Warning", "No LaTeX to copy!")
+            print(f"Failed to start conversion: {e}")
     
     def closeEvent(self, event):
         """Handle window close event"""

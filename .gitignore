@@ -2,6 +2,9 @@
 # Do not share these files publicly
 .config
 
+# Temporary drawings
+temp_overlay.png
+
 # Environment variables
 .env
 
