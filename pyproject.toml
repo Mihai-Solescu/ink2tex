@@ -37,15 +37,23 @@ dependencies = [
     "pyperclip>=1.8.0",
     "pynput>=1.7.0",
     "pyautogui>=0.9.0",
+    "psutil>=5.8.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-qt>=4.0.0",
+    "pytest-cov>=4.0.0",
     "black>=22.0.0",
     "isort>=5.0.0",
     "flake8>=4.0.0",
+]
+testing = [
+    "pytest>=7.0.0",
+    "pytest-qt>=4.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xvfb>=3.0.0",  # For headless GUI testing on Linux
 ]
 build = [
     "pyinstaller>=5.0.0",
@@ -89,6 +97,45 @@ profile = "black"
 multi_line_output = 3
 line_length = 88
 known_first_party = ["ink2tex"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "gui: marks tests that require GUI (may need X11 forwarding on Linux)",
+]
+
+[tool.coverage.run]
+source = ["src/ink2tex"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

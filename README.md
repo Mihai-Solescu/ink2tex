@@ -17,7 +17,7 @@ ink2tex/
 ├── pyproject.toml         # Modern Python project configuration
 ├── README.md              # This documentation file
 ├── dist/                  # Build output directory
-│   └── standalone/        # Standalone executable builds
+│   └── portable/          # Portable executable builds
 ├── docs/                  # Documentation files
 │   ├── AUTO_STARTUP_FEATURES.md
 │   ├── DEPLOYMENT.md
@@ -82,7 +82,7 @@ ink2tex/
    - ✅ Auto-start with Windows
 4. After installation, the app will be in your Start Menu and system tray
 
-### **Option 2: Use Standalone Executable**
+### **Option 2: Use Portable Executable**
 
 1. Download `Ink2TeX.exe` from the releases
 2. Create a folder for the app (e.g., `C:\Ink2TeX\`)
@@ -290,8 +290,47 @@ python build_wrapper.py --help       # Show all available options
 
 ### **Build Outputs**
 
-- **Standalone executable**: `dist/standalone/Ink2TeX.exe` (~100MB)
+- **Portable executable**: `dist/portable/Ink2TeX.exe` (~100MB)
 - **Windows installer**: `dist/installer/Ink2TeX_Setup_v1.0.0.exe` (~101MB)
+
+### **Portable Package Structure**
+
+The portable build creates a complete portable package:
+
+```
+dist/portable/
+├── Ink2TeX.exe          # Main executable
+├── .api                 # API key template (EDIT THIS!)
+├── .config              # Application settings
+├── prompt.txt           # AI prompt customization
+├── setup.bat           # Easy configuration script
+└── README.md           # Documentation
+```
+
+**For portable use:**
+1. Copy the entire `dist/portable/` folder to any location
+2. Run `setup.bat` for guided configuration
+3. Edit `.api` file with your Google Gemini API key
+4. Run `Ink2TeX.exe`
+
+### **Configuration System**
+
+Ink2TeX features an intelligent configuration system that automatically detects deployment mode:
+
+- **🎒 Portable Mode**: Config files next to executable (perfect for USB drives)
+- **🏠 Installed Mode**: Config files in platform-specific user directories
+
+**Cross-platform config locations:**
+- **Windows**: `%APPDATA%\Ink2TeX\`
+- **macOS**: `~/Library/Application Support/Ink2TeX/`
+- **Linux**: `~/.config/ink2tex/`
+
+**Configuration files:**
+- `.api` - Your Google Gemini API key
+- `.config` - Application settings (auto-start, hotkeys, etc.)
+- `prompt.txt` - AI behavior customization
+
+The system automatically creates template files with helpful comments for easy setup.
 
 ### **Advanced Usage**
 
@@ -551,7 +590,7 @@ The application follows a clean modular architecture:
    ```
 
 3. **Output location**:
-   - Executable: `dist\standalone\Ink2TeX.exe`
+   - Executable: `dist\portable\Ink2TeX.exe`
    - Installer: `dist\installer\Ink2TeX_Setup_v1.0.0.exe`
    - Build files: `build\`
 
@@ -567,7 +606,7 @@ ink2tex/
 ├── pyproject.toml         # Modern Python project configuration
 ├── README.md              # This documentation file
 ├── dist/                  # Build output directory
-│   └── standalone/        # Standalone executable builds
+│   └── portable/          # Portable executable builds
 ├── docs/                  # Documentation files
 │   ├── AUTO_STARTUP_FEATURES.md
 │   ├── DEPLOYMENT.md

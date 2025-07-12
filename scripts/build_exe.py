@@ -123,23 +123,23 @@ def build_executable(PROJECT_ROOT, python_exe):
     print("✓ PyInstaller build completed")
     
     # Move executable to the correct location
-    move_executable_to_standalone(PROJECT_ROOT)
+    move_executable_to_portable(PROJECT_ROOT)
     
     return True
 
-def move_executable_to_standalone(PROJECT_ROOT):
-    """Move the built executable from installer/dist to PROJECT_ROOT/dist/standalone"""
+def move_executable_to_portable(PROJECT_ROOT):
+    """Move the built executable from installer/dist to PROJECT_ROOT/dist/portable"""
     print()
-    print("[4.5/6] Moving executable to standalone directory...")
+    print("[4.5/6] Moving executable to portable directory...")
     
     # PyInstaller creates the executable in installer/dist/
     INSTALLER_DIST = PROJECT_ROOT / "installer" / "dist"
     EXE_SOURCE = INSTALLER_DIST / "Ink2TeX.exe"
     
-    # We want it in PROJECT_ROOT/dist/standalone/
-    STANDALONE_DIR = PROJECT_ROOT / "dist" / "standalone"
-    STANDALONE_DIR.mkdir(parents=True, exist_ok=True)
-    EXE_TARGET = STANDALONE_DIR / "Ink2TeX.exe"
+    # We want it in PROJECT_ROOT/dist/portable/
+    PORTABLE_DIR = PROJECT_ROOT / "dist" / "portable"
+    PORTABLE_DIR.mkdir(parents=True, exist_ok=True)
+    EXE_TARGET = PORTABLE_DIR / "Ink2TeX.exe"
     
     if EXE_SOURCE.exists():
         # Remove existing target if it exists
@@ -154,6 +154,9 @@ def move_executable_to_standalone(PROJECT_ROOT):
         if INSTALLER_DIST.exists():
             shutil.rmtree(INSTALLER_DIST)
             print("✓ Cleaned up temporary build directory")
+            
+        # Create portable package structure
+        create_portable_package(PROJECT_ROOT, PORTABLE_DIR)
     else:
         print(f"WARNING: Executable not found at expected location: {EXE_SOURCE}")
         
@@ -165,22 +168,128 @@ def move_executable_to_standalone(PROJECT_ROOT):
         else:
             print(f"ERROR: {INSTALLER_DIST} does not exist")
 
+def create_portable_package(PROJECT_ROOT, PORTABLE_DIR):
+    """Create a complete portable package with config templates"""
+    print()
+    print("[4.6/6] Creating portable package structure...")
+    
+    # Create config template files for portable version
+    config_templates = {
+        '.api': '''# Google Gemini API Key Configuration for Ink2TeX
+# Get your free API key from: https://makersuite.google.com/app/apikey
+# Replace 'your_api_key_here' with your actual API key
+
+GOOGLE_API_KEY=your_api_key_here
+''',
+        '.config': '''# Ink2TeX Configuration File
+# Application settings and preferences
+
+# Auto-start with Windows (true/false)
+AUTO_START=false
+
+# Global hotkey for overlay (default: ctrl+shift+i)
+HOTKEY=ctrl+shift+i
+
+# AI prompt file location (relative to executable directory)
+PROMPT_FILE=prompt.txt
+
+# Application behavior settings
+STARTUP_NOTIFICATION=true
+TRAY_ICON_TOOLTIP=Ink2TeX - Math to LaTeX Converter
+''',
+        'prompt.txt': '''From the provided image, convert the handwritten mathematics into LaTeX. Follow these rules exactly:
+
+1. Each line of handwritten text must be on its own new line in the output.
+2. Enclose each separate line of LaTeX within single dollar signs ($).
+3. Your entire response must consist ONLY of the resulting LaTeX code. Do not add any introductory text, explanations, or markdown formatting like ```latex.'''
+    }
+    
+    # Create template config files
+    for filename, content in config_templates.items():
+        template_file = PORTABLE_DIR / filename
+        template_file.write_text(content, encoding='utf-8')
+        print(f"✓ Created config template: {template_file.name}")
+    
+    # Copy documentation
+    readme_source = PROJECT_ROOT / "README.md"
+    if readme_source.exists():
+        readme_target = PORTABLE_DIR / "README.md"
+        shutil.copy2(readme_source, readme_target)
+        print(f"✓ Copied documentation: README.md")
+    
+    # Create setup script for easy configuration
+    setup_script_content = '''@echo off
+REM Quick setup script for Ink2TeX portable version
+echo ======================================
+echo      Ink2TeX Portable Setup
+echo ======================================
+echo.
+echo This portable version needs a Google Gemini API key to work.
+echo.
+echo 1. Get a free API key from: https://makersuite.google.com/app/apikey
+echo 2. Edit the .api file in this folder
+echo 3. Replace 'your_api_key_here' with your actual API key
+echo 4. Save the file and run Ink2TeX.exe
+echo.
+echo Configuration files in this folder:
+echo   .api       - Your Google API key (EDIT THIS!)
+echo   .config    - App settings (optional to edit)
+echo   prompt.txt - AI behavior (optional to edit)
+echo.
+echo Press Enter to open the .api file for editing...
+pause >nul
+notepad.exe .api
+echo.
+echo Setup complete! You can now run Ink2TeX.exe
+pause
+'''
+    
+    setup_script = PORTABLE_DIR / "setup.bat"
+    setup_script.write_text(setup_script_content, encoding='utf-8')
+    print(f"✓ Created setup script: setup.bat")
+    
+    print("✓ Portable package structure created")
+    print(f"  📁 Portable package location: {PORTABLE_DIR}")
+    print(f"  📋 Users should run setup.bat for easy configuration")
+
 def verify_build(PROJECT_ROOT):
     """Verify that the build was successful"""
     print()
     print("[5/6] Verifying build...")
     
-    STANDALONE_DIR = PROJECT_ROOT / "dist" / "standalone"
-    EXE_FILE = STANDALONE_DIR / "Ink2TeX.exe"
+    PORTABLE_DIR = PROJECT_ROOT / "dist" / "portable"
+    EXE_FILE = PORTABLE_DIR / "Ink2TeX.exe"
     
     if EXE_FILE.exists():
         file_size = EXE_FILE.stat().st_size
         print("✓ Build successful!")
         print(f"✓ Executable created: {EXE_FILE}")
         print(f"  File size: {file_size:,} bytes ({file_size / (1024*1024):.1f} MB)")
+        
+        # Verify portable package structure
+        config_files = ['.api', '.config', 'prompt.txt', 'setup.bat', 'README.md']
+        missing_files = []
+        
+        for config_file in config_files:
+            if (PORTABLE_DIR / config_file).exists():
+                print(f"✓ Config template: {config_file}")
+            else:
+                missing_files.append(config_file)
+        
+        if missing_files:
+            print(f"⚠️  Missing config files: {', '.join(missing_files)}")
+        
         print()
-        print(f"You can now run: {EXE_FILE}")
-        print("Or create an installer using: python build_wrapper.py installer")
+        print("📦 Portable Package Ready!")
+        print(f"   Location: {PORTABLE_DIR}")
+        print("   Users should:")
+        print("   1. Run setup.bat for easy configuration")
+        print("   2. Edit .api file with their Google Gemini API key")
+        print("   3. Run Ink2TeX.exe")
+        print()
+        print("🚀 Next steps:")
+        print("   - Test the executable: python build_wrapper.py --startup")
+        print("   - Create installer: python build_wrapper.py --installer")
         return True
     else:
         print("ERROR: Build failed - executable not found")

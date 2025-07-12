@@ -16,6 +16,11 @@ src_dir = Path(__file__).parent.parent
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
+# Check for single instance before importing heavy modules
+from ink2tex.core.single_instance import check_single_instance
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
+
 
 def main():
     """Main entry point for the Ink2TeX application."""
@@ -66,5 +71,16 @@ if __name__ == "__main__":
     except RuntimeError:
         pass  # Already set
     
+    # Check single instance BEFORE creating QApplication
+    print("🔒 Checking for existing Ink2TeX instances...")
+    instance_manager = check_single_instance("Ink2TeX")
+    
     # Run the application
-    sys.exit(main())
+    try:
+        exit_code = main()
+        instance_manager.release_lock()
+        sys.exit(exit_code)
+    except Exception as e:
+        print(f"Application error: {e}")
+        instance_manager.release_lock()
+        sys.exit(1)

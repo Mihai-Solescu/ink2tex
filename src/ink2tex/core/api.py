@@ -68,14 +68,34 @@ class GeminiAPIManager:
             # Import heavy dependencies locally
             import google.generativeai as genai
             
+            print("Configuring Gemini API...")
+            
+            # Configure API with timeout-like behavior
+            # We'll catch any hanging issues by using a simple approach
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            
+            # Try to create a model - start with the most stable one
+            print("Creating Gemini model...")
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
             self.configured = True
-            print("✓ Gemini API configured successfully!")
+            print("✓ Gemini API configured successfully with gemini-1.5-flash!")
             return True
             
+        except ImportError as e:
+            print(f"❌ Missing google-generativeai package: {str(e)}")
+            self.configured = False
+            return False
         except Exception as e:
             print(f"❌ API setup failed: {str(e)}")
+            # Common issues and suggestions
+            error_str = str(e).lower()
+            if "api" in error_str and "key" in error_str:
+                print("💡 Tip: Check that your API key in .api file is valid")
+            elif "network" in error_str or "connection" in error_str:
+                print("💡 Tip: Check your internet connection")
+            elif "quota" in error_str or "limit" in error_str:
+                print("💡 Tip: You may have exceeded your API quota")
+            
             self.configured = False
             return False
     

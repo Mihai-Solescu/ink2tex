@@ -46,15 +46,15 @@ def main():
     print()
     
     # Check if the executable exists
-    STANDALONE_EXE = PROJECT_ROOT / "dist" / "standalone" / "Ink2TeX.exe"
-    if not STANDALONE_EXE.exists():
+    PORTABLE_EXE = PROJECT_ROOT / "dist" / "portable" / "Ink2TeX.exe"
+    if not PORTABLE_EXE.exists():
         print("ERROR: Executable not found!")
-        print(f"Expected: {STANDALONE_EXE}")
+        print(f"Expected: {PORTABLE_EXE}")
         print("Please run: python build_wrapper.py exe")
         print("Or run full build: python build_wrapper.py full")
         return 1
     
-    print(f"✓ Found executable: {STANDALONE_EXE}")
+    print(f"✓ Found executable: {PORTABLE_EXE}")
     
     # Check if Inno Setup is installed
     print()

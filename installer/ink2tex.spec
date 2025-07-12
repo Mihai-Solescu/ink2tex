@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
 PyInstaller spec file for Ink2TeX
-Creates a standalone executable with all dependencies bundled
+Creates a portable executable with all dependencies bundled
 """
 
 import sys
@@ -16,9 +16,8 @@ version = '1.0.0'
 
 # Collect all data files that need to be included
 data_files = [
-    ('../.api', '.'),           # API key file (relative to installer/)
-    ('../.config', '.'),        # Configuration file  
-    ('../prompt.txt', '.'),     # AI prompt file
+    # Note: Config files (.api, .config, prompt.txt) are NOT bundled
+    # They will be created externally for user customization
     ('../README.md', '.'),      # Documentation
     ('../src/ink2tex', 'src/ink2tex'),  # Include entire modular package
 ]

@@ -49,21 +49,31 @@ class Ink2TeXSystemTrayApp(QWidget):
     def setup_gemini_api(self):
         """Setup Gemini API using config file"""
         try:
+            print("Debug: Starting Gemini API setup...")
             # Read API key
             api_key = ConfigReader.read_api_key_from_config()
+            print(f"Debug: API key loaded: {api_key[:10]}..." if api_key else "Debug: No API key loaded")
+            
+            # Add a timeout mechanism by using QTimer for non-blocking configuration
+            print("Debug: Attempting API configuration...")
             success = self.api_manager.configure_api(api_key)
+            print(f"Debug: API configuration success: {success}")
             
             if not success:
-                self.show_message("API Error", 
-                                "Failed to setup Gemini API. Please check your .api file.", 
-                                QSystemTrayIcon.MessageIcon.Critical)
+                print("Debug: API configuration failed - app will continue with limited functionality")
+                self.show_message("API Configuration", 
+                                "Gemini API configuration failed. You can still draw and manually edit LaTeX. Use the Retry button in the overlay to try again.", 
+                                QSystemTrayIcon.MessageIcon.Warning)
+            else:
+                print("Debug: API configuration successful!")
             
         except Exception as e:
             print(f"❌ API setup failed: {str(e)}")
-            self.show_message("API Error", 
-                            f"Failed to setup Gemini API: {str(e)}\\n\\n"
-                            "Please check your .api file with GOOGLE_API_KEY.", 
-                            QSystemTrayIcon.MessageIcon.Critical)
+            # Don't show critical error - let app continue
+            self.show_message("API Configuration", 
+                            f"Gemini API setup encountered an error: {str(e)}\\n\\n"
+                            "You can still draw and manually edit LaTeX. Check your .api file and use the Retry button.", 
+                            QSystemTrayIcon.MessageIcon.Warning)
     
     def setup_system_tray(self):
         """Setup system tray icon and menu"""

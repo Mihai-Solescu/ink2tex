@@ -101,8 +101,14 @@ class TransparentOverlay(QWidget):
         self.clear_btn.setStyleSheet("color: white; border: none; padding: 5px;")
         self.clear_btn.clicked.connect(self.clear_canvas)
         
+        self.retry_btn = QPushButton("🔄 Retry")
+        self.retry_btn.setStyleSheet("color: white; border: none; padding: 5px;")
+        self.retry_btn.clicked.connect(self.retry_conversion)
+        self.retry_btn.setVisible(False)  # Initially hidden
+        
         toolbar_layout.addWidget(self.upload_btn)
         toolbar_layout.addWidget(self.clear_btn)
+        toolbar_layout.addWidget(self.retry_btn)
         toolbar_layout.addStretch()
         
         # LaTeX Preview panel
@@ -516,22 +522,52 @@ class TransparentOverlay(QWidget):
         cropped_image.save(temp_path)
         
         # Convert using parent's API manager
+        print(f"Debug: parent_window exists: {self.parent_window is not None}")
+        if self.parent_window:
+            print(f"Debug: has api_manager: {hasattr(self.parent_window, 'api_manager')}")
+            if hasattr(self.parent_window, 'api_manager'):
+                print(f"Debug: api_manager.is_configured(): {self.parent_window.api_manager.is_configured()}")
+        
         if (self.parent_window and 
             hasattr(self.parent_window, 'api_manager') and 
             self.parent_window.api_manager.is_configured()):
             
+            print("Debug: Starting LaTeX conversion...")
             # Store reference to the thread for proper cleanup
             self.conversion_thread = self.parent_window.api_manager.convert_image_to_latex(
                 temp_path, 
                 self.on_latex_result,
                 self.on_latex_error
             )
+            print(f"Debug: Conversion thread created: {self.conversion_thread is not None}")
+        else:
+            print("Debug: API manager not available or not configured - skipping LaTeX conversion")
+            # Show helpful error message to user
+            if not self.parent_window:
+                error_msg = "Error: No parent window reference"
+            elif not hasattr(self.parent_window, 'api_manager'):
+                error_msg = "Error: API manager not found"
+            elif not self.parent_window.api_manager.is_configured():
+                error_msg = "Gemini API not configured.\n\nPlease check:\n• .api file exists with valid GOOGLE_API_KEY\n• Internet connection is working\n• API key has sufficient quota"
+            else:
+                error_msg = "Unknown API error"
+            
+            # Show error in the LaTeX text area
+            self.latex_edit.setText(error_msg)
+            print(f"Debug: Showing error to user: {error_msg}")
+            
+            # Also call the error callback for consistency
+            self.on_latex_error(error_msg)
     
     def on_latex_result(self, latex_text: str):
         """Handle LaTeX conversion result"""
         self.latex_text = latex_text
         self.latex_edit.setText(latex_text)
         self.update_preview()
+        
+        # Hide retry button on success
+        if hasattr(self, 'retry_btn'):
+            self.retry_btn.setVisible(False)
         
         # Clear the thread reference since it's finished
         self.conversion_thread = None
@@ -541,8 +577,26 @@ class TransparentOverlay(QWidget):
         print(f"LaTeX conversion error: {error_text}")
         self.latex_edit.setText(f"Error: {error_text}")
         
+        # Show retry button for API-related errors
+        if hasattr(self, 'retry_btn'):
+            self.retry_btn.setVisible(True)
+        
         # Clear the thread reference since it's finished
         self.conversion_thread = None
+    
+    def retry_conversion(self):
+        """Retry the LaTeX conversion"""
+        print("Debug: Retrying LaTeX conversion...")
+        
+        # Hide retry button
+        if hasattr(self, 'retry_btn'):
+            self.retry_btn.setVisible(False)
+        
+        # Clear previous error message
+        self.latex_edit.clear()
+        
+        # Retry the conversion
+        self.generate_latex()
     
     def on_latex_changed(self):
         """Handle manual LaTeX text changes"""
