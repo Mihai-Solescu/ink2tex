@@ -6,6 +6,8 @@ Creates a standalone executable with all dependencies bundled
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_dynamic_libs
+#from PyInstaller.utils.hooks import collect_data_files
 
 # Build configuration
 block_cipher = None
@@ -22,6 +24,9 @@ data_files = [
 
 # Ensure hidden imports match your choice of PyQt6
 hidden_imports = [
+    'numpy',
+    'matplotlib',
+    'PyQt6.sip',
     'google.generativeai',
     'PIL._tkinter_finder',
     'matplotlib.backends.backend_qtagg', # Use QtAgg for PyQt6
@@ -38,17 +43,17 @@ hidden_imports = [
 # Exclude unnecessary modules to reduce file size
 # Note: Being conservative with exclusions to avoid runtime errors
 excludes = [
-    'tkinter',  # GUI toolkit we don't use (we use PyQt6)
-    'test',     # Python test modules
-    'unittest', # Python unit testing
-    'pydoc',    # Python documentation generator
+    #'tkinter',  # GUI toolkit we don't use (we use PyQt6)
+    #'test',     # Python test modules
+    #'unittest', # Python unit testing
+    #'pydoc',    # Python documentation generator
     # Removed: pdb, doctest, difflib, inspect - these might be used by dependencies
 ]
 
 a = Analysis(
-    ['../app.py'],
+    ['../main.py'],
     pathex=[],
-    binaries=[],
+    binaries=collect_dynamic_libs('numpy'),
     datas=data_files,
     hiddenimports=hidden_imports,
     hookspath=[],
