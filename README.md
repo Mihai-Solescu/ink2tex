@@ -10,6 +10,14 @@
   [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
   [![Platform](https://img.shields.io/badge/Platform-Windows%2010/11-lightblue.svg)](#platform-support)
   [![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](#version-100-highlights)
+  
+  ## 📥 **Download v1.0.0**
+  
+  [![Windows Installer](https://img.shields.io/badge/Windows-Installer-blue?style=for-the-badge&logo=windows)](dist/installer/Ink2TeX_Setup_v1.0.0.exe)
+  [![Portable App](https://img.shields.io/badge/Windows-Portable-green?style=for-the-badge&logo=windows)](dist/portable/)
+  
+  **🏗️ Windows Installer** - Professional installation with API key wizard  
+  **📦 Portable App** - No installation required, runs from any folder
 </div>
 
 ---

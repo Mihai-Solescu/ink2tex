@@ -6,7 +6,6 @@ build_venv/
 
 # PyInstaller build artifacts
 build/
-dist/
 *.spec
 
 # API keys and secrets
@@ -67,6 +66,10 @@ Thumbs.db
 # Distribution files
 *.exe
 *.msi
+
+# But include our release installers
+!dist/installer/*.exe
+!dist/portable/*.exe
 
 # Test files (exclude temporary test scripts but keep the test suite)
 test_*.py
