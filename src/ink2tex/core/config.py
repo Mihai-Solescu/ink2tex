@@ -1,3 +1,19 @@
+#
+# Copyright July 2025 Mihai Solescu
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 """
 Configuration management for Ink2TeX.
 Handles reading API keys and configuration values from files with cross-platform support.
@@ -50,12 +66,12 @@ class ConfigManager:
     def _get_user_config_directory(self) -> Path:
         """Get the platform-specific user configuration directory"""
         if sys.platform == "win32":
-            # Windows: Use APPDATA for roaming configs
-            appdata = os.environ.get('APPDATA')
-            if appdata:
-                return Path(appdata) / "Ink2TeX"
+            # Windows: Use LOCALAPPDATA for local configs
+            localappdata = os.environ.get('LOCALAPPDATA')
+            if localappdata:
+                return Path(localappdata) / "Ink2TeX"
             else:
-                return Path.home() / "AppData" / "Roaming" / "Ink2TeX"
+                return Path.home() / "AppData" / "Local" / "Ink2TeX"
         elif sys.platform == "darwin":
             # macOS: Use Application Support
             return Path.home() / "Library" / "Application Support" / "Ink2TeX"

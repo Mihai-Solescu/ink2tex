@@ -42,19 +42,20 @@ hidden_imports = [
     'pyperclip',  # Clipboard operations
     'atexit',  # Exit handlers
     'winreg',  # Windows registry access
-    # Include all modular components
-    'src.ink2tex',
-    'src.ink2tex.app',
-    'src.ink2tex.core',
-    'src.ink2tex.core.config',
-    'src.ink2tex.core.startup',
-    'src.ink2tex.core.hotkey',
-    'src.ink2tex.core.api',
-    'src.ink2tex.core.single_instance',  # Single instance management
-    'src.ink2tex.ui',
-    'src.ink2tex.ui.overlay',
-    'src.ink2tex.ui.preview',
-    'src.ink2tex.ui.settings',
+    # Include all ink2tex modular components (using proper import paths)
+    'ink2tex',
+    'ink2tex.main',
+    'ink2tex.app',
+    'ink2tex.core',
+    'ink2tex.core.config',
+    'ink2tex.core.startup',
+    'ink2tex.core.hotkey',
+    'ink2tex.core.api',
+    'ink2tex.core.single_instance',
+    'ink2tex.ui',
+    'ink2tex.ui.overlay',
+    'ink2tex.ui.preview',
+    'ink2tex.ui.settings',
 ]
 
 # Exclude unnecessary modules to reduce file size

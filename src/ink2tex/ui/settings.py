@@ -1,3 +1,19 @@
+#
+# Copyright July 2025 Mihai Solescu
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 """
 Settings window for Ink2TeX.
 Provides comprehensive UI for configuring all application preferences.
@@ -457,6 +473,8 @@ class SettingsWindow(QWidget):
             
             if success:
                 self.show_message("Success", "✅ API connection successful!\nYour API key is valid and working.")
+                # Automatically refresh the parent app's API configuration
+                self.refresh_api_configuration(api_key)
                 self.update_api_status()
             else:
                 self.show_message("Error", "❌ API connection failed.\nPlease check your API key and internet connection.")
@@ -540,17 +558,19 @@ class SettingsWindow(QWidget):
             for key, value in config_updates.items():
                 ConfigReader.update_config_setting(key, value)
             
-            # Save API key
+            # Save API key and refresh API configuration
             api_key = self.api_key_input.text().strip()
             if api_key:
                 self.save_api_key(api_key)
+                # Automatically refresh API configuration in parent app
+                self.refresh_api_configuration(api_key)
             
             # Save prompt
             prompt_content = self.prompt_input.toPlainText().strip()
             if prompt_content:
                 self.save_prompt_file(prompt_content)
             
-            self.show_message("Success", "✅ All settings saved successfully!\n\nSome changes may require restarting the application to take effect.")
+            self.show_message("Success", "✅ All settings saved successfully!\n\nAPI configuration has been refreshed automatically.")
             self.close()
             
         except Exception as e:
@@ -575,6 +595,31 @@ class SettingsWindow(QWidget):
             prompt_file.write_text(content, encoding='utf-8')
         except Exception as e:
             raise Exception(f"Failed to save prompt file: {str(e)}")
+    
+    def refresh_api_configuration(self, api_key):
+        """Refresh the API configuration in the parent application"""
+        try:
+            # Refresh API configuration in parent app if available
+            if (self.parent_window and 
+                hasattr(self.parent_window, 'api_manager') and 
+                self.parent_window.api_manager):
+                
+                print("🔄 Refreshing API configuration...")
+                success = self.parent_window.api_manager.configure_api(api_key)
+                
+                if success:
+                    print("✅ API configuration refreshed successfully")
+                    # Update the status display
+                    self.update_api_status()
+                else:
+                    print("⚠️ API configuration refresh failed")
+                    
+            else:
+                print("⚠️ Cannot refresh API - parent app not available")
+                
+        except Exception as e:
+            print(f"Error refreshing API configuration: {e}")
+            # Don't raise the exception - this shouldn't prevent saving
     
     def reset_to_defaults(self):
         """Reset all settings to defaults"""

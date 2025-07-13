@@ -17,7 +17,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName={localappdata}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=..\dist\installer
@@ -25,7 +25,7 @@ OutputBaseFilename=Ink2TeX_Setup_v{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=admin
+PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 
@@ -38,11 +38,13 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 Name: "autostart"; Description: "Start {#MyAppName} automatically when Windows starts"; GroupDescription: "Startup Options"; Flags: unchecked
 
 [Files]
-Source: "..\dist\standalone\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\.api"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\.config"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: UpdateConfigFile  
-Source: "..\prompt.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\portable\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; Don't copy the .api file - it will be created during installation with user's key
+Source: "..\.config"; DestDir: "{localappdata}\Ink2TeX"; Flags: ignoreversion onlyifdoesntexist; AfterInstall: UpdateConfigFile  
+Source: "..\prompt.txt"; DestDir: "{localappdata}\Ink2TeX"; Flags: ignoreversion onlyifdoesntexist
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 ; Include modular source structure for runtime module imports
 Source: "..\src\ink2tex\*"; DestDir: "{app}\src\ink2tex"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -61,30 +63,67 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+Type: filesandordirs; Name: "{localappdata}\Ink2TeX"
 
 [Code]
+var
+  ApiKeyPage: TInputQueryWizardPage;
+  UserApiKey: string;
+
+procedure InitializeWizard;
+begin
+  // Create a custom page for API key input
+  ApiKeyPage := CreateInputQueryPage(wpSelectTasks,
+    'Google Gemini API Key', 'Configure your AI service',
+    'Ink2TeX uses Google''s Gemini AI to convert handwritten math to LaTeX. ' +
+    'You need a free API key to use this service.' + #13#10 + #13#10 +
+    'Get your free API key at: https://makersuite.google.com/app/apikey' + #13#10 + #13#10 +
+    'You can enter your API key now or configure it later through the application settings.' + #13#10 +
+    'The installer will create a template configuration file in your user profile.');
+    
+  // Add API key input field
+  ApiKeyPage.Add('Google Gemini API Key (optional):', False);
+  ApiKeyPage.Values[0] := '';
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  
+  if CurPageID = ApiKeyPage.ID then
+  begin
+    UserApiKey := Trim(ApiKeyPage.Values[0]);
+    
+    // Basic validation - Gemini keys start with "AIza" and are about 39 characters
+    if (UserApiKey <> '') and 
+       ((Length(UserApiKey) < 35) or (Copy(UserApiKey, 1, 4) <> 'AIza')) then
+    begin
+      MsgBox('The API key format appears to be invalid. ' +
+             'Google Gemini API keys typically start with "AIza" and are about 39 characters long.' + #13#10 + #13#10 +
+             'You can continue without an API key and configure it later through Settings.',
+             mbInformation, MB_OK);
+    end;
+  end;
+end;
+
 procedure CreateLicenseFile;
 var
   LicenseContent: string;
 begin
   LicenseContent := 
-    'MIT License' + #13#10 + #13#10 +
-    'Copyright (c) 2025 Ink2TeX Project' + #13#10 + #13#10 +
-    'Permission is hereby granted, free of charge, to any person obtaining a copy' + #13#10 +
-    'of this software and associated documentation files (the "Software"), to deal' + #13#10 +
-    'in the Software without restriction, including without limitation the rights' + #13#10 +
-    'to use, copy, modify, merge, publish, distribute, sublicense, and/or sell' + #13#10 +
-    'copies of the Software, and to permit persons to whom the Software is' + #13#10 +
-    'furnished to do so, subject to the following conditions:' + #13#10 + #13#10 +
-    'The above copyright notice and this permission notice shall be included in all' + #13#10 +
-    'copies or substantial portions of the Software.' + #13#10 + #13#10 +
-    'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR' + #13#10 +
-    'IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,' + #13#10 +
-    'FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE' + #13#10 +
-    'AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER' + #13#10 +
-    'LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,' + #13#10 +
-    'OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE' + #13#10 +
-    'SOFTWARE.';
+    'Apache License' + #13#10 +
+    'Version 2.0, January 2004' + #13#10 +
+    'http://www.apache.org/licenses/' + #13#10 + #13#10 +
+    'Copyright July 2025 Mihai Solescu' + #13#10 + #13#10 +
+    'Licensed under the Apache License, Version 2.0 (the "License");' + #13#10 +
+    'you may not use this file except in compliance with the License.' + #13#10 +
+    'You may obtain a copy of the License at' + #13#10 + #13#10 +
+    '    http://www.apache.org/licenses/LICENSE-2.0' + #13#10 + #13#10 +
+    'Unless required by applicable law or agreed to in writing, software' + #13#10 +
+    'distributed under the License is distributed on an "AS IS" BASIS,' + #13#10 +
+    'WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.' + #13#10 +
+    'See the License for the specific language governing permissions and' + #13#10 +
+    'limitations under the License.' + #13#10;
     
   SaveStringToFile(ExpandConstant('{app}\LICENSE.txt'), LicenseContent, False);
 end;
@@ -98,9 +137,10 @@ begin
     '================================' + #13#10 + #13#10 +
     '🎉 Thank you for installing Ink2TeX!' + #13#10 + #13#10 +
     'GETTING STARTED:' + #13#10 +
-    '1. You need a Google Gemini API key to use this application' + #13#10 +
-    '2. Get your free API key at: https://makersuite.google.com/app/apikey' + #13#10 +
-    '3. Edit the .api file in the installation folder and add your key' + #13#10 +
+    '1. The application is installed in your user profile' + #13#10 +
+    '2. If you didn''t enter an API key during installation, get one at:' + #13#10 +
+    '   https://makersuite.google.com/app/apikey' + #13#10 +
+    '3. Right-click the app tray icon and go to Settings to configure your API key' + #13#10 +
     '4. Launch Ink2TeX and press Ctrl+Shift+I to start drawing!' + #13#10 + #13#10 +
     'USAGE:' + #13#10 +
     '• Press Ctrl+Shift+I anywhere to open the drawing overlay' + #13#10 +
@@ -109,13 +149,15 @@ begin
     '• Press Esc to close the overlay' + #13#10 +
     '• Right-click the system tray icon for options' + #13#10 + #13#10 +
     'CONFIGURATION:' + #13#10 +
+    '• Config files are stored in: %LOCALAPPDATA%\Ink2TeX\' + #13#10 +
     '• .api file: Contains your Google API key' + #13#10 +
     '• .config file: Contains application settings' + #13#10 +
-    '• prompt.txt: Contains the AI conversion prompt' + #13#10 + #13#10 +
+    '• prompt.txt: Contains the AI conversion prompt' + #13#10 +
+    '• Use the Settings menu (right-click tray icon) to configure' + #13#10 + #13#10 +
     'TROUBLESHOOTING:' + #13#10 +
     '• Make sure your API key is valid and has Gemini access' + #13#10 +
     '• Check your internet connection for API calls' + #13#10 +
-    '• Try running as administrator if hotkeys don''t work' + #13#10 + #13#10 +
+    '• No administrator rights required - runs in user mode' + #13#10 + #13#10 +
     'For support, visit: https://github.com/ink2tex/ink2tex';
     
   SaveStringToFile(ExpandConstant('{app}\INSTALL_NOTES.txt'), NotesContent, False);
@@ -130,7 +172,7 @@ var
   Updated: Boolean;
   AutoStartValue: string;
 begin
-  ConfigPath := ExpandConstant('{app}\.config');
+  ConfigPath := ExpandConstant('{localappdata}\Ink2TeX\.config');
   
   // Determine auto-start value based on task selection
   if IsTaskSelected('autostart') then
@@ -163,5 +205,43 @@ begin
     
     // Save back to file
     SaveStringsToFile(ConfigPath, ConfigLines, False);
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ApiFileContent: string;
+  ApiFilePath: string;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    // Ensure config directory exists
+    ForceDirectories(ExpandConstant('{localappdata}\Ink2TeX'));
+    
+    // Create .api file with user's key or template
+    ApiFilePath := ExpandConstant('{localappdata}\Ink2TeX\.api');
+    
+    if UserApiKey <> '' then
+    begin
+      // User provided an API key
+      ApiFileContent := 
+        '# Google Gemini API Key Configuration for Ink2TeX' + #13#10 +
+        '# Get your free API key from: https://makersuite.google.com/app/apikey' + #13#10 + #13#10 +
+        'GOOGLE_API_KEY=' + UserApiKey + #13#10;
+    end
+    else
+    begin
+      // Create template file
+      ApiFileContent := 
+        '# Google Gemini API Key Configuration for Ink2TeX' + #13#10 +
+        '# Get your free API key from: https://makersuite.google.com/app/apikey' + #13#10 +
+        '# Replace ''your_api_key_here'' with your actual API key' + #13#10 + #13#10 +
+        'GOOGLE_API_KEY=your_api_key_here' + #13#10;
+    end;
+    
+    SaveStringToFile(ApiFilePath, ApiFileContent, False);
+    
+    CreateLicenseFile;
+    CreateInstallNotes;
   end;
 end;

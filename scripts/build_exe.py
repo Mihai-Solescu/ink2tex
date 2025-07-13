@@ -122,14 +122,30 @@ def clean_previous_builds(PROJECT_ROOT):
     print("✓ Previous builds cleaned")
 
 def prepare_assets(PROJECT_ROOT):
-    """Prepare application assets"""
+    """Prepare application assets (only if needed)"""
     print()
-    print("[3/6] Preparing application assets...")
+    print("[3/6] Checking for application assets...")
     
     ASSETS_DIR = PROJECT_ROOT / "assets"
-    ASSETS_DIR.mkdir(exist_ok=True)
     
-    print("✓ Assets directory ready")
+    # Check if we have any assets to include
+    icon_file = ASSETS_DIR / "icon.ico"
+    readme_icon = ASSETS_DIR / "README_ICON.txt"
+    
+    has_assets = False
+    if icon_file.exists():
+        print(f"✓ Found application icon: {icon_file}")
+        has_assets = True
+    elif readme_icon.exists():
+        print(f"✓ Found icon readme: {readme_icon}")
+        has_assets = True
+    
+    if has_assets:
+        ASSETS_DIR.mkdir(exist_ok=True)
+        print("✓ Assets directory prepared")
+    else:
+        print("ℹ No assets found - skipping assets directory creation")
+        print("  (This is normal - the application will use default system icons)")
 
 def build_executable(PROJECT_ROOT, python_exe):
     """Build executable with PyInstaller"""
