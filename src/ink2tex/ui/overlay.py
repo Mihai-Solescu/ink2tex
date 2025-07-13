@@ -111,6 +111,12 @@ class TransparentOverlay(QWidget):
         toolbar_layout.addWidget(self.retry_btn)
         toolbar_layout.addStretch()
         
+        # Help text
+        help_label = QLabel("⌨️ Enter: Generate • Esc: Close • Ctrl+Z: Undo • Q: Quit App")
+        help_label.setStyleSheet("color: #666; font-size: 10px; font-style: italic;")
+        help_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        toolbar_layout.addWidget(help_label)
+        
         # LaTeX Preview panel
         preview_panel = QWidget()
         preview_panel.setStyleSheet("background-color: rgba(255, 255, 255, 230); border: 2px solid gray; border-radius: 5px;")
@@ -457,6 +463,9 @@ class TransparentOverlay(QWidget):
             self.generate_latex()
         elif event.key() == Qt.Key.Key_Z and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self.undo_last_stroke()
+        elif event.key() == Qt.Key.Key_Q:
+            # Quit the entire application
+            self.quit_application()
             
     def undo_last_stroke(self):
         """Remove the last drawn stroke"""
@@ -628,6 +637,26 @@ class TransparentOverlay(QWidget):
             pyperclip.copy(self.latex_text)
         self.releaseKeyboard()
         self.close()
+    
+    def quit_application(self):
+        """Quit the entire application when 'q' is pressed"""
+        try:
+            # Close overlay first
+            self.releaseKeyboard()
+            self.close()
+            
+            # Quit the main application through the parent
+            if self.parent_window:
+                self.parent_window.quit_application()
+            else:
+                # Fallback - quit QApplication directly
+                from PyQt6.QtWidgets import QApplication
+                QApplication.quit()
+        except Exception as e:
+            print(f"Error quitting application: {e}")
+            # Force quit as fallback
+            import sys
+            sys.exit(0)
     
     def close_and_copy(self):
         """Close overlay and copy LaTeX to clipboard"""

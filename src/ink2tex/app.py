@@ -286,6 +286,13 @@ draw your math equation, and press <b>Enter</b> to convert.</p>
             # Create and show settings window
             self.settings_window = SettingsWindow(self)
             self.settings_window.show()
+            self.settings_window.raise_()
+            self.settings_window.activateWindow()
+            
+            # Ensure window is brought to front
+            QTimer.singleShot(100, lambda: self.settings_window.activateWindow())
+            
+            print("⚙️ Settings window opened")
             
         except Exception as e:
             print(f"Error showing settings: {e}")
@@ -316,6 +323,7 @@ draw your math equation, and press <b>Enter</b> to convert.</p>
 <li><b>Enter:</b> Generate LaTeX</li>
 <li><b>Esc:</b> Close and copy to clipboard</li>
 <li><b>Ctrl+Z:</b> Undo last stroke</li>
+<li><b>Q:</b> Quit entire application</li>
 </ul>
 """
         
