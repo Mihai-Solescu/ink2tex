@@ -38,6 +38,50 @@ A modern PyQt6 system tray application that converts handwritten mathematical eq
 - ✅ **LaTeX Preview** with real-time rendering
 - ✅ **Global Hotkeys** and system tray integration
 
+## 🚀 Future Improvements & Roadmap
+
+### **🧠 AI Model Expansion**
+- **Local AI Models** - Offline handwriting recognition using local LLMs
+  - Integration with Ollama for local model hosting
+  - Support for specialized math models (MathBERT, MathFormer)
+  - Privacy-first processing with no cloud dependency
+  - Custom model fine-tuning for improved accuracy
+
+### **🔌 Multi-API Support**
+- **OpenAI GPT-4 Vision** - Alternative AI backend with advanced vision capabilities
+- **Anthropic Claude** - Additional AI provider for varied processing approaches
+- **Azure Cognitive Services** - Enterprise-grade handwriting recognition
+- **Custom API Endpoints** - Support for self-hosted AI services
+- **Model Fallback Chain** - Automatic failover between multiple AI providers
+
+### **🌐 Cross-Platform Expansion**
+- **Linux Distribution** - Native packaging for Ubuntu, Fedora, Arch
+- **macOS Support** - DMG installer with proper system integration
+- **Mobile Companions** - iOS/Android apps for synced handwriting capture
+- **Web Interface** - Browser-based version for universal access
+
+### **📱 Enhanced Features**
+- **Real-time Processing** - Live LaTeX conversion as you draw
+- **Multi-language Support** - UI localization and multi-language math notation
+- **Advanced Editing** - Built-in LaTeX editor with syntax highlighting
+- **Export Options** - PDF, PNG, SVG output with custom styling
+- **Collaboration Tools** - Shared workspaces and team features
+- **Template System** - Pre-built equation templates and snippets
+
+### **🔧 Developer Experience**
+- **Plugin Architecture** - Third-party extensions and custom processors
+- **REST API** - Programmatic access for integration with other tools
+- **Batch Processing** - Command-line interface for bulk conversions
+- **SDK Development** - Language bindings for Python, JavaScript, etc.
+
+### **🎯 Specialized Domains**
+- **Chemistry Support** - Chemical equation and structure recognition
+- **Physics Notation** - Advanced physics symbols and diagrams
+- **Engineering Drawings** - Technical diagram conversion
+- **Academic Integration** - LMS plugins for educational platforms
+
+*These improvements will be prioritized based on community feedback and contribution interest.*
+
 ## 🖥️ Platform Support
 
 - ✅ **Windows 10/11 (x64)** ## ⚙️ **Configuration**
