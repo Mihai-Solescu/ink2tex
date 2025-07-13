@@ -42,6 +42,7 @@ def main():
     """Main entry point for the Ink2TeX application."""
     # Import here to avoid loading heavy dependencies during multiprocessing setup
     from ink2tex.app import Ink2TeXSystemTrayApp
+    from ink2tex.core.resources import get_application_icon
     from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMessageBox
     
     app = QApplication(sys.argv)
@@ -52,6 +53,11 @@ def main():
     app.setApplicationVersion("1.0")
     app.setApplicationDisplayName("Ink2TeX - Handwritten Math to LaTeX")
     app.setOrganizationName("Ink2TeX")
+    
+    # Set the application icon globally
+    app_icon = get_application_icon()
+    if app_icon:
+        app.setWindowIcon(app_icon)
     
     # Check if system tray is available
     if not QSystemTrayIcon.isSystemTrayAvailable():

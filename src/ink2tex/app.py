@@ -124,27 +124,11 @@ class Ink2TeXSystemTrayApp(QWidget):
                         QSystemTrayIcon.MessageIcon.Information)
     
     def create_tray_icon(self):
-        """Create a simple tray icon"""
-        # Create a simple icon with the Ink2TeX logo
-        pixmap = QPixmap(32, 32)
-        pixmap.fill(Qt.GlobalColor.transparent)
+        """Create the tray icon using the application icon"""
+        from ink2tex.core.resources import get_application_icon
         
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        # Draw a simple math symbol background
-        painter.setBrush(QBrush(QColor(70, 130, 180)))  # Steel blue
-        painter.setPen(QPen(QColor(25, 25, 112), 2))    # Navy border
-        painter.drawEllipse(2, 2, 28, 28)
-        
-        # Draw LaTeX symbol
-        painter.setPen(QPen(Qt.GlobalColor.white, 2))
-        painter.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        painter.drawText(8, 22, "∫")  # Integral symbol
-        
-        painter.end()
-        
-        self.icon = QIcon(pixmap)
+        # Use the application icon, which has fallback support
+        self.icon = get_application_icon()
     
     def create_tray_menu(self):
         """Create the system tray context menu"""

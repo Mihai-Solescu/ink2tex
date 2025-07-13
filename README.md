@@ -1,6 +1,19 @@
 # Ink2TeX - Handwritten Math to LaTeX Converter
 
+*Version 1.0.0 - Professional Windows Release*
+
 A modern PyQt6 system tray application that converts handwritten mathematical equations to LaTeX format using Google's Gemini AI. Features a modular architecture with Python-based build system and professional Windows installer.
+
+## 📋 Version 1.0.0 Highlights
+
+- ✅ **Professional Windows Installer** with API key wizard
+- ✅ **User-level Installation** (no admin rights required)
+- ✅ **Apache License 2.0** with full compliance
+- ✅ **Comprehensive Settings UI** with automatic API refresh
+- ✅ **Security Features** (personal API key protection)
+- ✅ **Build System** with Python-based automation
+- ✅ **LaTeX Preview** with real-time rendering
+- ✅ **Global Hotkeys** and system tray integration
 
 ## 🖥️ Platform Support
 

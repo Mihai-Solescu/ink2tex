@@ -20,6 +20,7 @@ data_files = [
     # They will be created externally for user customization
     ('../README.md', '.'),      # Documentation
     ('../src/ink2tex', 'src/ink2tex'),  # Include entire modular package
+    ('../src/ink2tex/assets/icon.ico', 'src/ink2tex/assets'),  # Application icon
 ]
 
 # Ensure hidden imports match your choice of PyQt6 and include all modular components
@@ -52,6 +53,7 @@ hidden_imports = [
     'ink2tex.core.hotkey',
     'ink2tex.core.api',
     'ink2tex.core.single_instance',
+    'ink2tex.core.resources',
     'ink2tex.ui',
     'ink2tex.ui.overlay',
     'ink2tex.ui.preview',
@@ -105,7 +107,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='../assets/icon.ico' if Path('../assets/icon.ico').exists() else None,
+    icon='../src/ink2tex/assets/icon.ico' if Path('../src/ink2tex/assets/icon.ico').exists() else None,
     version='version_info.txt' if Path('version_info.txt').exists() else None,
 )
 
