@@ -1,6 +1,40 @@
 # Ink2TeX - Handwritten Math to LaTeX Converter
 
-A modern PyQt6 system tray application that converts handwritten mathematical equations to LaTeX format using Google's Gemini AI. Features a modular architecture with Python-based build system for cross-platform development and reliable packaging.
+A modern PyQt6 system tray application that converts handwritten mathematical equations to LaTeX format using Google's Gemini AI. Features a modular architecture with Python-based build system and professional Windows installer.
+
+## 🖥️ Platform Support
+
+- ✅ **Windows 10/11 (x64)** ## ⚙️ **Configuration**
+
+Ink2TeX features an intelligent configuration system with two deployment modes:
+
+- **🎒 Portable Mode**: Config files next to executable (for portable usage)
+- **🏠 Installed Mode**: Config files in user directories (Windows installer default)
+
+### **Configuration Locations**
+
+**Windows (Installed)**: `%LOCALAPPDATA%\Ink2TeX\`
+**Windows (Portable)**: Next to executable
+**Linux/macOS**: Not yet implemented
+
+### **Configuration Files**
+
+- `.api` - Your Google Gemini API key (required)
+- `.config` - Application settings (auto-start, hotkeys, etc.)
+- `prompt.txt` - AI conversion behavior customization
+
+### **First-Time Setup**
+
+1. **Get API Key**: Visit https://makersuite.google.com/app/apikey
+2. **Configure via installer**: Enter key during installation, or
+3. **Configure via Settings**: Right-click tray icon → Settings → General tab
+4. **Test connection**: Settings window includes API test button
+
+The system automatically creates template files with helpful comments for easy setup.support with professional installer
+- ❌ **Linux** - Code compatible, deployment not implemented  
+- ❌ **macOS** - Code compatible, deployment not implemented
+
+*The application core is cross-platform compatible. Build scripts and packaging are currently Windows-specific. Linux and macOS deployment planned for future releases.*
 
 ## 🏗️ **Architecture Overview**
 
@@ -71,37 +105,45 @@ ink2tex/
 - **Modern Python**: Uses `pyproject.toml` configuration and modular package structure
 - **Professional CLI**: Build system uses `--` argument conventions with comprehensive help
 
-## 📦 **Quick Start for Users**
+## 📦 **Quick Start (Windows)**
 
-### **Option 1: Use the Installer (Recommended)**
+### **Option 1: Use the Professional Installer (Recommended)**
 
 1. Download `Ink2TeX_Setup_v1.0.0.exe` from the releases
-2. Run the installer and follow the setup wizard
-3. Choose optional features:
+2. Run the installer (no administrator rights required)
+3. Enter your Google Gemini API key during installation or configure later
+4. Choose optional features:
    - ✅ Desktop shortcut
    - ✅ Auto-start with Windows
-4. After installation, the app will be in your Start Menu and system tray
+5. Launch from Start Menu - the app runs in your system tray
 
 ### **Option 2: Use Portable Executable**
 
-1. Download `Ink2TeX.exe` from the releases
-2. Create a folder for the app (e.g., `C:\Ink2TeX\`)
-3. Place the executable in the folder
-4. Get a Google Gemini API key (see Configuration below)
-5. Create configuration files (see Configuration below)
-6. Double-click `Ink2TeX.exe` to run
+1. Download the portable version from releases
+2. Extract to any folder (e.g., `C:\Ink2TeX\`)
+3. Get a Google Gemini API key at https://makersuite.google.com/app/apikey
+4. Edit the `.api` file in the folder and add your key
+5. Double-click `Ink2TeX.exe` to run
 
 ### **Option 3: Run from Source (Developers)**
 
-1. Clone the repository
-2. Set up virtual environment: 
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Mihai-Solescu/ink2tex.git
+   cd ink2tex
+   ```
+
+2. Set up development environment:
    ```bash
    python build_wrapper.py --init
    ```
+
 3. Run the application:
    ```bash
    python src/ink2tex/main.py
    ```
+
+*Note: Source code is cross-platform compatible. Only packaging/deployment is Windows-specific currently.*
 
 ## 🎯 **How to Use Ink2TeX**
 
@@ -243,9 +285,9 @@ build_wrapper.bat init        # Initialize virtual environment (.venv)
 build_wrapper.bat help        # Show help and usage
 ```
 
-## 🚀 **Build System**
+## 🚀 **Build System (Windows)**
 
-Ink2TeX uses a modern Python-based build system with robust path handling and cross-platform compatibility.
+Ink2TeX uses a modern Python-based build system with robust path handling. Currently supports Windows with plans for Linux/macOS deployment.
 
 ### **Quick Build Commands**
 
@@ -257,6 +299,7 @@ python build_wrapper.py
 python build_wrapper.py --full       # Full build (executable + installer)
 python build_wrapper.py --exe        # Executable only (faster)
 python build_wrapper.py --installer  # Installer only
+python build_wrapper.py --portable   # Portable version
 python build_wrapper.py --test       # Test deployment readiness
 python build_wrapper.py --init       # Initialize virtual environment
 python build_wrapper.py --startup    # Test application startup
@@ -266,19 +309,25 @@ python build_wrapper.py --help       # Show all available options
 
 ### **Build System Features**
 
-- ✅ **Cross-platform Python scripts** (no more batch file dependencies)
+- ✅ **Python-based automation** (cross-platform scripts)
 - ✅ **Robust path handling** using `pathlib` and `PROJECT_ROOT` discovery
-- ✅ **Automatic virtual environment management** (`.venv` creation and setup)
+- ✅ **Virtual environment management** (`.venv` creation and setup)
 - ✅ **Professional CLI** with `--` argument conventions
-- ✅ **Non-blocking execution** (no hanging on input prompts)
-- ✅ **Comprehensive testing** (deployment readiness, startup validation)
+- ✅ **Windows packaging** (PyInstaller + Inno Setup)
+- ❌ **Linux packaging** (planned - AppImage/DEB)
+- ❌ **macOS packaging** (planned - DMG)
 
-### **Build Requirements**
+### **Build Requirements (Windows)**
 
-- Python 3.8+ with pip
+- Python 3.12+ with pip
 - Inno Setup 6 (for Windows installer)
 - Virtual environment automatically managed (`.venv`)
-- All dependencies automatically installed
+- All dependencies automatically installed from `requirements.txt`
+
+### **Platform Status**
+
+- **Windows**: Full production build system
+- **Linux/macOS**: Application code compatible, build scripts need implementation
 
 **The build system automatically:**
 

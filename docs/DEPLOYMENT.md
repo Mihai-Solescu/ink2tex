@@ -1,23 +1,37 @@
-# Ink2TeX Deployment Guide
+# Ink2TeX Deployment Guide v1.0.0
 
-This guide explains how to create a distributable version of Ink2TeX that users can install with a single click.
+*Professional Windows deployment with Apache License 2.0 compliance*
 
-## 🚀 Quick Start for Developers
+## 🖥️ Platform Support
 
-### 1. Build the Executable
+- ✅ **Windows 10/11 (x64)** - Full production deployment
+- ❌ **Linux** - Code compatible, packaging not implemented
+- ❌ **macOS** - Code compatible, packaging not implemented
+
+## 🚀 Quick Deployment (Windows)
+
+### 1. Build System Requirements
+- Python 3.12+ with pip
+- Inno Setup 6 (for installer)
+- Windows 10/11 development environment
+
+### 2. Build Commands
 ```bash
-# Run the build script
-build_exe.bat
-```
-This creates `dist/Ink2TeX.exe` - a standalone executable with all dependencies bundled.
+# Initialize build environment
+python build_wrapper.py --init
 
-### 2. Create the Installer (Optional but Recommended)
-```bash
-# First install Inno Setup from: https://jrsoftware.org/isinfo.php
-# Then run:
-build_installer.bat
+# Build everything (recommended)
+python build_wrapper.py --full
+
+# Individual builds
+python build_wrapper.py --exe        # Executable only
+python build_wrapper.py --installer  # Installer only
+python build_wrapper.py --portable   # Portable version
 ```
-This creates `installer/Ink2TeX_Setup_v1.0.0.exe` - a professional Windows installer.
+
+### 3. Distribution Files
+- **Installer**: `dist/installer/Ink2TeX_Setup_v1.0.0.exe` (~80-120MB)
+- **Portable**: `dist/portable/Ink2TeX.exe` + configs (~150-200MB)
 
 ## 📦 What Users Get
 
