@@ -1,0 +1,4 @@
+# Google Gemini API Key Configuration for Ink2TeX
+# Get your free API key from: https://makersuite.google.com/app/apikey
+
+GOOGLE_API_KEY=your_api_key_here

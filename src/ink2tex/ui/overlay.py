@@ -535,16 +535,14 @@ class TransparentOverlay(QWidget):
             self.conversion_thread.wait(1000)  # Wait up to 1 second
             
         # Save only the cropped handwriting area
-        temp_path = os.path.join("temp", "temp_overlay_drawing.png")
-        
-        # Ensure temp directory exists
-        os.makedirs("temp", exist_ok=True)
+        from ink2tex.core.resources import get_temp_file_path
+        temp_path = get_temp_file_path("temp_overlay_drawing.png")
         
         # Get cropped image containing only handwriting with padding
         cropped_image = self.crop_canvas_to_handwriting()
         
         # Save the cropped image
-        cropped_image.save(temp_path)
+        cropped_image.save(str(temp_path))
         
         # Convert using parent's API manager
         print(f"Debug: parent_window exists: {self.parent_window is not None}")
@@ -560,7 +558,7 @@ class TransparentOverlay(QWidget):
             print("Debug: Starting LaTeX conversion...")
             # Store reference to the thread for proper cleanup
             self.conversion_thread = self.parent_window.api_manager.convert_image_to_latex(
-                temp_path, 
+                str(temp_path), 
                 self.on_latex_result,
                 self.on_latex_error
             )

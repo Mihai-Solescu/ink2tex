@@ -21,6 +21,7 @@ data_files = [
     ('../README.md', '.'),      # Documentation
     ('../src/ink2tex', 'src/ink2tex'),  # Include entire modular package
     ('../src/ink2tex/assets/icon.ico', 'src/ink2tex/assets'),  # Application icon
+    ('../temp', 'temp'),        # Pre-create temp directory
 ]
 
 # Ensure hidden imports match your choice of PyQt6 and include all modular components
@@ -107,7 +108,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='../src/ink2tex/assets/icon.ico' if Path('../src/ink2tex/assets/icon.ico').exists() else None,
+    icon='../src/ink2tex/assets/installer_icon.ico' if Path('../src/ink2tex/assets/installer_icon.ico').exists() else None,
     version='version_info.txt' if Path('version_info.txt').exists() else None,
 )
 

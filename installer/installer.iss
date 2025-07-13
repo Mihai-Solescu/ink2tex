@@ -28,7 +28,7 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
-SetupIconFile=..\src\ink2tex\assets\icon.ico
+SetupIconFile=..\src\ink2tex\assets\installer_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
@@ -49,6 +49,8 @@ Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\NOTICE"; DestDir: "{app}"; Flags: ignoreversion
 ; Include modular source structure for runtime module imports
 Source: "..\src\ink2tex\*"; DestDir: "{app}\src\ink2tex"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Pre-create temp directory for application use
+Source: "..\temp\*"; DestDir: "{app}\temp"; Flags: ignoreversion createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

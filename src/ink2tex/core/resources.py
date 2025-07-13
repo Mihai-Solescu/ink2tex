@@ -25,6 +25,52 @@ from pathlib import Path
 from typing import Optional
 
 
+def get_app_temp_dir() -> Path:
+    """
+    Get the application's temp directory path.
+    
+    Returns the path where temporary files should be stored.
+    This is relative to the application's working directory.
+    
+    Returns:
+        Path object for the temp directory
+    """
+    return Path("temp")
+
+
+def ensure_temp_dir() -> Path:
+    """
+    Ensure the temp directory exists and return its path.
+    
+    Creates the temp directory if it doesn't exist.
+    
+    Returns:
+        Path object for the temp directory
+    """
+    temp_dir = get_app_temp_dir()
+    try:
+        temp_dir.mkdir(exist_ok=True)
+        return temp_dir
+    except Exception as e:
+        print(f"Warning: Could not create temp directory '{temp_dir}': {e}")
+        # Fall back to current directory if temp creation fails
+        return Path(".")
+
+
+def get_temp_file_path(filename: str) -> Path:
+    """
+    Get a path for a temporary file in the app's temp directory.
+    
+    Args:
+        filename: Name of the temporary file
+        
+    Returns:
+        Path object for the temporary file
+    """
+    temp_dir = ensure_temp_dir()
+    return temp_dir / filename
+
+
 def get_resource_path(relative_path: str) -> Optional[Path]:
     """
     Get the absolute path to a resource file.
@@ -70,8 +116,14 @@ def get_icon_path() -> Optional[Path]:
     Get the path to the application icon.
     
     Returns:
-        Path to icon.ico if it exists, None otherwise
+        Path to icon file if it exists, None otherwise
     """
+    # Try installer icon first (properly formatted for Windows)
+    installer_icon = get_resource_path('installer_icon.ico')
+    if installer_icon:
+        return installer_icon
+    
+    # Fall back to original icon
     return get_resource_path('icon.ico')
 
 
